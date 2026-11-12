@@ -11,7 +11,7 @@ monitoramento (NOC) com a sala e o rack de servidores em 3D.
 
 O ping do servidor continua **verde**, mas o ESP32 enxerga o que o ping não vê.
 
-```
+```text
 sensores ──fios──> ESP32 ──Wi-Fi/HTTP──> Zabbix ──> Telegram
                                            │
                                            └──────> Grafana (central NOC 3D)
@@ -19,24 +19,40 @@ SRV-01 e SRV-02 (Zabbix agent 2) ─────────> Zabbix
 ```
 
 ## Índice
-1. [Componentes](#componentes)
-2. [Endereços e logins](#endereços-e-logins)
-3. [Como montar — passo a passo](#como-montar--passo-a-passo)
-4. [Comandos do dia a dia](#comandos-do-dia-a-dia)
-5. [Estrutura das pastas](#estrutura-das-pastas)
-6. [Pré-requisitos](#pré-requisitos)
-7. [Zabbix e Grafana em Docker](#zabbix-e-grafana-em-docker)
-8. [Firmware do ESP32 e gravador web](#firmware-do-esp32-e-gravador-web)
-9. [Zabbix configurado pela API (template)](#zabbix-configurado-pela-api-template)
-10. [Central de monitoramento (NOC) no Grafana](#central-de-monitoramento-noc-no-grafana)
-11. [Ações na central: Reconhecer, Comentar, Manutenção](#ações-na-central-reconhecer-comentar-manutenção)
-    e [ações que corrigem](#ações-que-corrigem-reiniciar-e-encerrar-conexões)
-12. [Problemas comuns](#problemas-comuns)
+
+- [Monitoramento lógico e físico de sala de servidores](#monitoramento-lógico-e-físico-de-sala-de-servidores)
+  - [Índice](#índice)
+  - [Componentes](#componentes)
+  - [Endereços e logins](#endereços-e-logins)
+  - [Como montar — passo a passo](#como-montar--passo-a-passo)
+  - [Comandos do dia a dia](#comandos-do-dia-a-dia)
+  - [Estrutura das pastas](#estrutura-das-pastas)
+  - [Pré-requisitos](#pré-requisitos)
+  - [Zabbix e Grafana em Docker](#zabbix-e-grafana-em-docker)
+  - [Firmware do ESP32 e gravador web](#firmware-do-esp32-e-gravador-web)
+    - [A montagem](#a-montagem)
+    - [Atualizar pela rede (OTA)](#atualizar-pela-rede-ota)
+    - [Entrega híbrida: polling + push](#entrega-híbrida-polling--push)
+  - [Zabbix configurado pela API (template)](#zabbix-configurado-pela-api-template)
+    - [🧠 Para leigo: as palavras do Zabbix](#-para-leigo-as-palavras-do-zabbix)
+  - [Central de monitoramento (NOC) no Grafana](#central-de-monitoramento-noc-no-grafana)
+    - [Princípios do visual](#princípios-do-visual)
+    - [O que tem na tela](#o-que-tem-na-tela)
+    - [A sala 3D](#a-sala-3d)
+    - [Como funciona por dentro](#como-funciona-por-dentro)
+  - [Ações na central: Reconhecer, Comentar, Manutenção](#ações-na-central-reconhecer-comentar-manutenção)
+    - [🧠 Para leigo: por que um serviço só para os botões?](#-para-leigo-por-que-um-serviço-só-para-os-botões)
+  - [Ações que corrigem: reiniciar e encerrar conexões](#ações-que-corrigem-reiniciar-e-encerrar-conexões)
+    - [🧠 Para leigo: o mesmo botão, uma receita em cada servidor](#-para-leigo-o-mesmo-botão-uma-receita-em-cada-servidor)
+  - [Problemas comuns](#problemas-comuns)
+  - [Estrutura das pastas](#estrutura-das-pastas-1)
+    - [Como a árvore abaixo foi gerada](#como-a-árvore-abaixo-foi-gerada)
+  - [Estrutura das pastas](#estrutura-das-pastas-2)
 
 ## Componentes
 
 | Parte | O que é |
-|---|---|
+| --- | --- |
 | Zabbix 7.0.32 LTS e Grafana 13.2.5 | em Docker, com versões fixadas |
 | ESP32 DevKit V1 | DHT11 (temperatura e umidade), sensor de chuva (água no piso) e MC-38 (porta); firmware com portal de Wi-Fi, OTA e push para o Zabbix |
 | Gravador web (:8090) | compila o firmware em Docker e grava a placa pelo navegador, sem instalar nada |
@@ -50,15 +66,15 @@ SRV-01 e SRV-02 (Zabbix agent 2) ─────────> Zabbix
 ## Endereços e logins
 
 | O quê | Endereço | Login |
-|---|---|---|
-| Zabbix | http://localhost:8080 | `Admin` / senha em `ZABBIX_PASSWORD` no `.env` (padrão `zabbix` — **troque**) |
-| Grafana | http://localhost:3000 | `GRAFANA_ADMIN_USER` / `GRAFANA_ADMIN_PASSWORD` do `.env` |
-| **Central em tela cheia** | http://localhost:3000/d/sala-do-servidor/sala-do-servidor?kiosk&viewPanel=panel-1&_dash.hideTimePicker | (sem menus) |
-| Gravador do ESP32 | http://localhost:8090 (Chrome/Edge) | — |
-| Gerador de carga da Loja | http://localhost:8092 | — |
-| Aplicação Loja (no SRV-01, o celular) | http://IP-do-celular:8080 | — |
-| Aplicação Loja (no SRV-02, containers) | http://localhost:8093 | — |
-| Serviço de ações da central | http://localhost:8094/saude | só neste PC; quem age é quem está logado no Grafana |
+| --- | --- | --- |
+| Zabbix | <http://localhost:8080> | `Admin` / senha em `ZABBIX_PASSWORD` no `.env` (padrão `zabbix` — **troque**) |
+| Grafana | <http://localhost:3000> | `GRAFANA_ADMIN_USER` / `GRAFANA_ADMIN_PASSWORD` do `.env` |
+| **Central em tela cheia** | <http://localhost:3000/d/sala-do-servidor/sala-do-servidor?kiosk&viewPanel=panel-1&_dash.hideTimePicker> | (sem menus) |
+| Gravador do ESP32 | <http://localhost:8090> (Chrome/Edge) | — |
+| Gerador de carga da Loja | <http://localhost:8092> | — |
+| Aplicação Loja (no SRV-01, o celular) | <http://IP-do-celular:8080> | — |
+| Aplicação Loja (no SRV-02, containers) | <http://localhost:8093> | — |
+| Serviço de ações da central | <http://localhost:8094/saude> | só neste PC; quem age é quem está logado no Grafana |
 
 > **Trocou a senha do Admin no Zabbix?** Coloque a nova em `ZABBIX_PASSWORD` no `.env` e rode
 > `docker compose up -d grafana` (o Grafana usa essa senha para ler o Zabbix).
@@ -70,7 +86,7 @@ Siga na ordem. Cada passo tem o teste para saber se deu certo.
 1. **Preparar o `.env`** — copie o `.env.example` para `.env`, preencha senhas e IPs e rode
    `docker compose up -d`.
 2. **Montar o hardware** — ligações na tabela [A montagem](#a-montagem).
-3. **Gravar o ESP32** — http://localhost:8090 → *Gravar no ESP32* (detalhes em
+3. **Gravar o ESP32** — <http://localhost:8090> → *Gravar no ESP32* (detalhes em
    [Firmware do ESP32](#firmware-do-esp32-e-gravador-web)).
 4. **Wi-Fi pelo celular** — rede `Sala-Servidor-XXXX` → escolha a rede 2,4 GHz → senha.
    Em *Avisos imediatos ao Zabbix* o IP deste PC já vem preenchido (vem do `ZABBIX_HOST_IP`
@@ -84,23 +100,29 @@ Siga na ordem. Cada passo tem o teste para saber se deu certo.
 8. **Servidor monitorado** — instale o Zabbix agent 2 no SRV-01 (o guia do celular está em
    [celular/README.md](celular/README.md)) e anote o IP.
 9. **Apontar o Zabbix para os aparelhos** — no `.env`:
-   ```
+
+   ```text
+
    ESP32_IP=<IP do ESP32>
    NOTEBOOK_VELHO_IP=<IP do SRV-01>
    NOTEBOOK_VELHO_SO=linux   (windows ou android)
    ```
+
    e rode:
+
    ```bash
    docker compose up -d
    python zabbix/configurar.py
    ```
-   ✅ Teste: em 1–2 min a central mostra, no cartão *Sensor ambiental*, `Online` com a versão do
+
+  ✅ Teste: em 1–2 min a central mostra, no cartão *Sensor ambiental*, `Online` com a versão do
    firmware, e o rack mostra o servidor (clique nele para ver CPU, memória…).
    ✅ Teste do push: com o *Monitor Serial* aberto, afaste o ímã da porta. Deve aparecer
    `Push: Zabbix recebeu` e a porta abrir na sala 3D em menos de 1 s. Se aparecer
    `Push: não conectou`, o Firewall do Windows está bloqueando a porta 10051 (veja
    [Problemas comuns](#problemas-comuns)); enquanto isso o polling continua funcionando.
-10. **Telegram** — crie o bot no @BotFather, coloque `TELEGRAM_TOKEN` no `.env`, mande "oi"
+
+1. **Telegram** — crie o bot no @BotFather, coloque `TELEGRAM_TOKEN` no `.env`, mande "oi"
    para o bot, rode `python zabbix/descobrir_chat_id.py`, coloque `TELEGRAM_CHAT_ID` no `.env`
    e rode `python zabbix/configurar.py` de novo.
    ✅ Teste: pingue água no sensor → chega "🚨 Água detectada no piso" no celular.
@@ -112,7 +134,7 @@ Nada mais precisa ser feito à mão no Zabbix nem no Grafana.
 Rodar na pasta do projeto.
 
 | Para… | Comando |
-|---|---|
+| --- | --- |
 | Subir tudo | `docker compose up -d` |
 | Ver o estado | `docker compose ps` |
 | Ver logs (ex.: Zabbix server) | `docker compose logs -f zabbix-server` |
@@ -126,7 +148,7 @@ Rodar na pasta do projeto.
 ## Estrutura das pastas
 
 | Pasta / arquivo | O que tem |
-|---|---|
+| --- | --- |
 | [docker-compose.yml](docker-compose.yml) | Todos os serviços, comentados |
 | `.env` / [.env.example](.env.example) | Senhas, token e IPs (o `.env` **nunca** vai para o Git) |
 | [firmware/](firmware/) | Código do ESP32 (PlatformIO) |
@@ -155,7 +177,7 @@ leem o `.env` sozinhos, e o `.gitignore` impede que ele vá para o GitHub.
 ## Zabbix e Grafana em Docker
 
 | Serviço | Imagem | Endereço | Para que serve |
-|---|---|---|---|
+| --- | --- | --- | --- |
 | `postgres` | `postgres:16-alpine` | só dentro do Docker | Banco onde o Zabbix guarda tudo |
 | `zabbix-server` | `zabbix/zabbix-server-pgsql:alpine-7.0.32` | porta 10051 | O "cérebro": coleta, avalia gatilhos, alerta |
 | `zabbix-web` | `zabbix/zabbix-web-nginx-pgsql:alpine-7.0.32` | :8080 | Tela do Zabbix e API |
@@ -176,7 +198,7 @@ existe no container (`interface unavailable`). Não atrapalha.
 ## Firmware do ESP32 e gravador web
 
 | Arquivo | Papel |
-|---|---|
+| --- | --- |
 | [firmware/platformio.ini](firmware/platformio.ini) | Placa `esp32dev`, `espressif32@6.13.0`, bibliotecas fixadas |
 | [firmware/src/main.cpp](firmware/src/main.cpp) | Wi-Fi, portal, sensores, `/status`, LED, botão BOOT |
 | [firmware/src/pagina_portal.h](firmware/src/pagina_portal.h) | Página de configuração do Wi-Fi |
@@ -191,7 +213,7 @@ que o Zabbix lê), `http://IP/atualizar` (firmware novo pela rede) e `http://sal
 ### A montagem
 
 | Sensor | Ligação | Como o firmware lê |
-|---|---|---|
+| --- | --- | --- |
 | DHT11 | DATA no GPIO 4 | a cada 2 s |
 | Chuva YL-83/FC-37 (com LM393) | alimentado em 3V3, **AO** no GPIO 32; **DO** sem uso; sem resistor externo | analógico, 11 dB, média de 10 leituras, sem pull-up nem pull-down |
 | Porta MC-38 | entre o GPIO 25 e o GND | `INPUT_PULLUP`, debounce de 50 ms |
@@ -214,12 +236,12 @@ só a interpretação em `porta_aberta`; `porta_raw` continua mostrando o pino d
 ### Atualizar pela rede (OTA)
 
 | Arquivo | Caminho | Quando usar | Wi-Fi e ajustes |
-|---|---|---|---|
+| --- | --- | --- | --- |
 | `sala-servidor.bin` (mesclado, endereço 0x0) | **cabo**, botão *Gravar no ESP32* | primeira gravação, troca da tabela de partições ou placa que não liga | **apagados** |
 | `sala-servidor-ota.bin` (só a aplicação) | **rede**, página `/atualizar` | atualizações normais | mantidos |
 
 **Passo a passo sem cabo:** defina a senha na página do ESP32 (só na primeira vez), baixe o
-`sala-servidor-ota.bin` em http://localhost:8090, abra `http://sala-servidor.local/atualizar`,
+`sala-servidor-ota.bin` em <http://localhost:8090>, abra `http://sala-servidor.local/atualizar`,
 escolha o arquivo, digite a senha e envie. No fim, a placa reinicia e a página mostra a versão nova.
 
 **Se a atualização falhar no meio, o ESP32 continua rodando a versão anterior.** A memória tem
@@ -239,13 +261,14 @@ a opção da porta continuam sem senha, para qualquer aparelho da rede local, co
 
 **Pelo PC, com PlatformIO instalado (opcional):** o ambiente `ota` usa o ArduinoOTA na porta 3232,
 com a mesma senha. O Firewall do Windows pode pedir permissão, porque a placa conecta de volta no PC.
+
 ```powershell
 $env:ESP32_OTA_SENHA = "a senha definida na página do ESP32"
 pio run -d firmware -e ota -t upload
 ```
 
 | LED da placa | Significado |
-|---|---|
+| --- | --- |
 | Pisca **devagar** | Modo configuração (esperando o Wi-Fi) |
 | Pisca **rápido** | Alerta: água, sem energia ou porta aberta |
 | **Aceso** | Tudo normal |
@@ -265,7 +288,7 @@ página do ESP32. Só o *ADC1* (pinos 32–39) funciona com Wi-Fi. `millis()` em
 ### Entrega híbrida: polling + push
 
 | Caminho | Quem inicia | Quando | Para quê |
-|---|---|---|---|
+| --- | --- | --- | --- |
 | **Polling** | o Zabbix busca `http://ESP32/status` | a cada 15 s (`{$ESP32.INTERVALO}`) | temperatura e umidade (mudam devagar) e **sinal de vida** |
 | **Push** | o ESP32 entrega o mesmo JSON na porta **10051** | na hora em que água, porta ou energia **mudam** | alertas urgentes em menos de 1 s |
 
@@ -274,6 +297,7 @@ gatilhos, central e Telegram não mudam nada. Medido na bancada: o alerta de ág
 Zabbix em **0,1 s** (antes, com polling de 5 s, levava de 1 a 5 s).
 
 Cuidados que o firmware já tem:
+
 - **Relógio que volta a zero**: o `millis()` zera a cada 49,7 dias. A espera do push e o
   `uptime_s` foram feitos para continuar certos depois disso.
 - **Tempo limite de 1 s**: se o Zabbix não atender, a placa não fica parada esperando.
@@ -304,7 +328,7 @@ quantas vezes quiser (**idempotente**: procura pelo nome; se existe, atualiza; s
   - **7 gatilhos**:
 
     | Gatilho | Severidade | Expressão (no template) |
-    |---|---|---|
+    | --- | --- | --- |
     | Temperatura da sala acima de 32 °C | Alta | `avg(...esp32.temperatura,2m)>{$TEMP.ALTA}` |
     | Temperatura da sala acima de 28 °C | Atenção | `avg(...esp32.temperatura,2m)>{$TEMP.ATENCAO}` (depende do de 32: não dispara se o de 32 já estiver ativo) |
     | Água detectada no piso | Desastre | `last(...esp32.agua)=1` |
@@ -323,6 +347,7 @@ quantas vezes quiser (**idempotente**: procura pelo nome; se existe, atualiza; s
 - Exporta o template para [zabbix/template_esp32_sala.yaml](zabbix/template_esp32_sala.yaml).
 
 ### 🧠 Para leigo: as palavras do Zabbix
+
 - **Host**: a "coisa" monitorada (o ESP32 é um host; o SRV-01 é outro).
 - **Template**: um "molde" de itens + gatilhos. Você aplica a quantos hosts quiser.
 - **Item mestre**: o único item que vai até o ESP32. Busca o JSON inteiro de uma vez.
@@ -341,6 +366,7 @@ O dashboard **Sala do servidor** tem **um painel só**, em tela cheia, feito à 
 **Em tela cheia:** http://localhost:3000/d/sala-do-servidor/sala-do-servidor?kiosk&viewPanel=panel-1&_dash.hideTimePicker
 
 ### Princípios do visual
+
 - Aparência de ferramenta de operação (Grafana/Zabbix): fundo grafite, texto normal, números em
   fonte monoespaçada. **Cor só para estado** (verde, laranja, vermelho); **só o alarme pisca**.
 - Ícones de linha fina, de uma cor só, no lugar de emojis coloridos. Eles pegam a cor do estado (cinza, verde ou vermelho) e têm a mesma cara em qualquer computador. Sem brilho neon e sem efeitos de "filme". Textos curtos, como um operador escreveria.
@@ -352,7 +378,7 @@ O dashboard **Sala do servidor** tem **um painel só**, em tela cheia, feito à 
 ### O que tem na tela
 
 | Área | Conteúdo |
-|---|---|
+| --- | --- |
 | **Topo** | Título, estado geral ("Sem problemas" / "2 problemas · desastre"), contagem por severidade e relógio |
 | **Esquerda** | Temperatura (leitura, régua 15–40 °C com as faixas de 28 e 32, mín/máx de 30 min) · umidade · **Estado da sala** (energia, vazamento, porta, com a leitura ADC) · ficha do sensor (sinal, última leitura, firmware) |
 | **Centro** | Sala em 3D **isométrica** (estilo planta técnica) · gráfico de temperatura e umidade de 30 min |
@@ -362,7 +388,7 @@ O dashboard **Sala do servidor** tem **um painel só**, em tela cheia, feito à 
 ### A sala 3D
 
 | Na cena | Comandado por | O que acontece |
-|---|---|---|
+| --- | --- | --- |
 | **Rack 42U** | hosts do grupo *Sala do servidor* | Cada host com agente vira um servidor de 2U com etiqueta de patrimônio; LED de estado; LEDs de disco piscam conforme a CPU. Novo servidor no Zabbix = novo servidor no rack |
 | Switch | tráfego dos servidores | LEDs das portas piscam conforme o tráfego |
 | Nobreak | Energia da tomada | Visor `ENTRADA OK` / `ENTRADA FALHA` |
@@ -377,7 +403,7 @@ O dashboard **Sala do servidor** tem **um painel só**, em tela cheia, feito à 
 fora do rack** e, ao lado, aparece o que ele roda, no caminho de uma requisição:
 
 | Forma | Componente | Etiqueta mostra |
-|---|---|---|
+| --- | --- | --- |
 | caixa fina com portas | **proxy** (nginx) | req/s, conexões |
 | bloco com faixas que piscam no ritmo das requisições | **aplicação** (Loja) | req/s, latência p95, % de erros |
 | cilindro | **banco** (PostgreSQL) | conexões (% do máximo), tamanho |
@@ -394,7 +420,7 @@ rack** acende com qualquer problema dele. Clicar num componente rola a gaveta at
 da gaveta), passe o mouse: aparece o ícone de alvo. Ao clicar:
 
 | Alerta | O que a central faz |
-|---|---|
+| --- | --- |
 | Água, energia, porta, temperatura, sensor/DHT11 | a câmera voa até a poça, a tomada, a porta ou o sensor; um **anel pulsa** ali (cor = gravidade) e o cartão da coluna esquerda pisca |
 | De um servidor (banco, aplicação, container, agente…) | abre o servidor na **vista explodida**, o anel pulsa no **componente exato** e a gaveta rola até o cartão dele |
 
@@ -405,7 +431,7 @@ Funciona também com eventos já resolvidos, para mostrar onde algo aconteceu.
 escolhe a animação por ela (não pelo texto do alerta, que pode mudar):
 
 | Tag `efeito` | Gatilho | Reação na sala |
-|---|---|---|
+| --- | --- | --- |
 | `temperatura` | acima de 28 °C / 32 °C | **Calor subindo** do topo do rack (laranja / vermelho) |
 | `agua` | Água detectada no piso | Gotas e poça |
 | `energia` | Tomada sem energia | Luzes caem, emergência pisca, energia e ar param |
@@ -427,6 +453,7 @@ para não alarmar por um pico passageiro.
 Arraste para girar · roda do mouse para aproximar · **duplo clique** volta à vista inicial.
 
 ### Como funciona por dentro
+
 - **Dados:** o navegador pede ao Grafana, e o plugin do Zabbix repassa a chamada com a senha do
   `.env` (`/api/datasources/uid/zabbix/resources/zabbix-api`). Só métodos de **leitura** passam.
 - **Ciclos:** últimos valores e problemas a cada **3 s**; histórico de 30 min a cada **30 s**;
@@ -445,7 +472,7 @@ A central deixou de ser só para olhar. Três ações de **triagem**, que valem 
 ambiente (servidor físico, AWS, Azure, Oracle) porque mexem no **Zabbix**, não no servidor:
 
 | Botão | Onde | O que faz | Por que existe |
-|---|---|---|---|
+| --- | --- | --- | --- |
 | **Reconhecer** | clique num problema (lista ou gaveta) | marca "alguém está cuidando", com o seu nome | a equipe não corre duas vezes para o mesmo alerta; reconhecidos descem na lista |
 | **Comentar** | idem | anota no histórico do alerta (o que já foi tentado) | quem chegar depois lê a história sem perguntar |
 | **Pôr em manutenção** | gaveta do servidor | silencia os alertas daquele servidor por 15 min a 4 h | vai mexer no servidor? não acorde ninguém à toa |
@@ -457,7 +484,7 @@ a sala 3D também ignoram o alerta silenciado.
 
 ### 🧠 Para leigo: por que um serviço só para os botões?
 
-```
+```text
 navegador ──cookie do Grafana──▶ acoes (porta 8094) ──usuário "central-acoes"──▶ Zabbix
                                      │
                                      └── pergunta ao Grafana: "de quem é este cookie? é Editor/Admin?"
@@ -490,13 +517,13 @@ cartão da aplicação e do banco (gaveta do servidor) e dentro do alerta aberto
 aplicação ou do banco. Feita a partir de um alerta, a ação fica anotada no histórico dele.
 
 | Botão | SRV-02 (Docker) | SRV-01 (celular) |
-|---|---|---|
+| --- | --- | --- |
 | **Reiniciar aplicação** | API do Docker: reinicia o container `loja2-api` | sinal HUP ao gunicorn (troca o processo sem fechar a porta); com a Loja caída, faz o vigia religar na hora |
 | **Encerrar conexões ociosas** | `psql` dentro do container `loja2-db` | usuário `zbx_acoes`, que entra pelas vagas reservadas mesmo com o banco lotado |
 
 ### 🧠 Para leigo: o mesmo botão, uma receita em cada servidor
 
-```
+```text
 botão ─▶ acoes ─▶ Zabbix (script.execute) ─▶ agente do servidor ─▶ /opt/acoes/reiniciar-app.sh
 ```
 
@@ -521,7 +548,7 @@ arquivo chamaria AWS, Azure ou Oracle, e o botão continuaria igual.
 ## Problemas comuns
 
 | Sintoma | Causa provável | O que fazer |
-|---|---|---|
+| --- | --- | --- |
 | Sensores cinza "sem dados" e "ESP32 SEM RESPOSTA" | Item mestre não suportado (IP errado/placa fora) | Zabbix → Dados recentes → `esp32.status`; abra `http://IP/status` no navegador |
 | Central em branco ou "Não consegui carregar" | Erro em algum arquivo de `grafana/noc/` | F12 → Console no navegador; procure "[noc]" |
 | Aviso vermelho "Sem dados do Zabbix" no topo | Grafana não consegue ler o Zabbix | Confira `ZABBIX_PASSWORD` no `.env` e `docker compose up -d grafana` |
@@ -534,3 +561,135 @@ arquivo chamaria AWS, Azure ou Oracle, e o botão continuaria igual.
 | Portas respondem vazio ("Empty reply") depois de o Docker Desktop reiniciar; o push para de chegar | O encaminhamento de portas do Docker ficou com defeito, com o container saudável | `docker compose up -d --force-recreate --no-deps zabbix-server` (troque pelo serviço afetado). Os dados ficam no banco |
 | Serial mostra `Push: Zabbix recusou` | Nome do host no portal diferente do Zabbix | Use `esp32-sala` (nome técnico, não o nome de exibição) |
 | Telegram não chega | Token/chat ID/ação | Rode `descobrir_chat_id.py`; Zabbix → Alertas → Tipos de mídia → Telegram → Testar |
+
+## Estrutura das pastas
+
+| Pasta / arquivo | O que tem |
+| --- | --- |
+| [docker-compose.yml](docker-compose.yml) | Todos os serviços, comentados |
+| `.env` / [.env.example](.env.example) | Senhas, token e IPs (o `.env` **nunca** vai para o Git) |
+| [firmware/](firmware/) | Código do ESP32 (PlatformIO) |
+| [gravador/](gravador/) | Dockerfile que compila + página que grava pelo navegador |
+| [zabbix/](zabbix/) | Configuração pela API, template exportado, chat ID do Telegram |
+| [grafana/](grafana/) | Central NOC: `noc/` (sala 3D), `provisioning/`, gerador do dashboard |
+| [acoes/](acoes/) | Serviço das ações + receitas por servidor (`agente/srv01/`, `agente/srv02/`) |
+| [app/](app/) | Aplicação Loja (Docker, SQL, nginx) — veja [app/README.md](app/README.md) |
+| [celular/](celular/) | Guia do SRV-01 (Android + Termux), numerado — veja [celular/README.md](celular/README.md) |
+| [gerador/](gerador/) | Gerador de carga da Loja (porta 8092) |
+
+### Como a árvore abaixo foi gerada
+
+```bash
+tree -a -I '.git|.DS_Store|__pycache__|*.pyc' --dirsfirst
+```
+
+## Estrutura das pastas
+
+```text
+.
+├── .vscode
+│   └── settings.json
+├── acoes
+│   ├── agente
+│   │   ├── srv01
+│   │   │   ├── encerrar-ociosas.sh
+│   │   │   └── reiniciar-app.sh
+│   │   ├── srv02
+│   │   │   ├── Dockerfile
+│   │   │   ├── encerrar-ociosas.sh
+│   │   │   └── reiniciar-app.sh
+│   │   └── acoes.conf
+│   └── acoes.py
+├── agente
+│   └── .gitkeep
+├── app
+│   ├── Dockerfile
+│   ├── esquema.sql
+│   ├── loja.py
+│   ├── nginx-loja.conf
+│   └── README.md
+├── celular
+│   ├── 1-termux-ssh.sh
+│   ├── 2-debian-zabbix.sh
+│   ├── 3-agente.sh
+│   ├── 4-banco-app.sh
+│   ├── 5-plugin-postgresql.sh
+│   ├── 6-vigia-e-limites.sh
+│   ├── 7-acoes.sh
+│   ├── 8-agendamento.sh
+│   └── README.md
+├── cris
+│   └── 01.txt
+├── docs
+│   └── .gitkeep
+├── firmware
+│   ├── src
+│   │   ├── .gitkeep
+│   │   ├── main.cpp
+│   │   ├── pagina_atualizar.h
+│   │   ├── pagina_portal.h
+│   │   └── pagina_status.h
+│   └── platformio.ini
+├── gerador
+│   └── gerador.py
+├── grafana
+│   ├── dashboards
+│   │   └── sala-do-servidor.json
+│   ├── noc
+│   │   ├── vendor
+│   │   │   ├── jsm
+│   │   │   │   ├── controls
+│   │   │   │   │   └── OrbitControls.js
+│   │   │   │   ├── environments
+│   │   │   │   │   └── RoomEnvironment.js
+│   │   │   │   ├── postprocessing
+│   │   │   │   │   ├── EffectComposer.js
+│   │   │   │   │   ├── MaskPass.js
+│   │   │   │   │   ├── OutputPass.js
+│   │   │   │   │   ├── Pass.js
+│   │   │   │   │   ├── RenderPass.js
+│   │   │   │   │   ├── ShaderPass.js
+│   │   │   │   │   └── UnrealBloomPass.js
+│   │   │   │   ├── renderers
+│   │   │   │   │   └── CSS2DRenderer.js
+│   │   │   │   └── shaders
+│   │   │   │       ├── CopyShader.js
+│   │   │   │       ├── LuminosityHighPassShader.js
+│   │   │   │       └── OutputShader.js
+│   │   │   ├── LICENSE-three.txt
+│   │   │   └── three.module.min.js
+│   │   ├── acoes.js
+│   │   ├── cena3d.js
+│   │   ├── dados.js
+│   │   ├── estilo.css
+│   │   ├── interface.js
+│   │   └── noc.js
+│   ├── provisioning
+│   │   ├── dashboards
+│   │   │   └── sala.yaml
+│   │   ├── datasources
+│   │   │   └── zabbix.yaml
+│   │   └── plugins
+│   │       └── zabbix.yaml
+│   └── gerar_dashboard.py
+├── gravador
+│   ├── site
+│   │   ├── app.js
+│   │   └── index.html
+│   ├── .gitkeep
+│   ├── Dockerfile
+│   └── nginx.conf
+├── zabbix
+│   ├── .gitkeep
+│   ├── configurar.py
+│   ├── descobrir_chat_id.py
+│   └── template_esp32_sala.yaml
+├── .dockerignore
+├── .env.example
+├── .gitattributes
+├── .gitignore
+├── docker-compose.yml
+└── README.md
+
+31 directories, 73 files
+```

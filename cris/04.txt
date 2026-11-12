@@ -1,0 +1,368 @@
+
+Excelente! 🎉 Tudo subiu sem erro. O docker compose up -d terminou com sucesso:
+
+✅ Imagens baixadas e construídas (Zabbix, Grafana, PostgreSQL, a Loja, o gravador, o agente)
+
+✅ Volumes criados (os dados ficam guardados)
+
+✅ Todos os containers iniciados — inclusive zabbix-server, zabbix-web, grafana, acoes, loja2-api, loja2-db, loja2-proxy, srv02-agente, gravador, gerador
+
+Os pull access denied no início são normais — o Compose tentou baixar as imagens sala-servidor/*:local do registry, não achou (porque são construídas localmente), e então compilou com [+] Building 103.4s FINISHED. É o comportamento esperado.
+
+Próximo passo: verificar o estado
+Rode:
+
+bash
+docker compose ps
+Você deve ver 11 containers (não 4, como eu tinha dito antes — o projeto é maior do que eu resumi). O que importa:
+
+Serviço	Estado esperado
+postgres	Up (healthy)
+zabbix-server	Up (healthy) — pode levar 1-2 min
+zabbix-web	Up (healthy)
+grafana	Up (healthy)
+loja2-db	Up (healthy)
+loja2-api, loja2-proxy	Up
+srv02-agente	Up
+gravador, gerador, acoes	Up
+Se algum estiver restarting ou exited, me mande a saída completa e rode:
+
+bash
+docker compose logs --tail=50 <nome-do-servico>
+Abrir as telas
+🎯 Central NOC (o que você quer ver primeiro)
+👉 http://localhost:3000/d/sala-do-servidor/sala-do-servidor?kiosk&viewPanel=panel-1
+
+Usuário: admin
+
+Senha: admin
+
+Dica: a primeira subida do Grafana leva 1-2 min carregando o plugin do Zabbix. Se a central ficar em branco, espere 1 min e recarregue (Cmd+R). Se persistir, me avise.
+
+Zabbix
+👉 http://localhost:8080
+
+Usuário: Admin
+
+Senha: zabbix
+
+Gravador do ESP32 (só quando tiver a placa)
+👉 http://localhost:8090 — no Chrome/Edge (não funciona bem no Safari)
+
+Gerador de carga da Loja
+👉 http://localhost:8092 — para simular tráfego na aplicação
+
+Loja no SRV-02 (containers)
+👉 http://localhost:8093 — a aplicação rodando em container
+
+Sobre o SRV-02: já está no ar! 🎁
+Uma coisa boa que você ganhou de graça: os containers loja2-db, loja2-api, loja2-proxy e srv02-agente já subiram. Isso significa que você já tem o SRV-02 simulado rodando no próprio Mac.
+
+Mas ele ainda não aparece no Zabbix porque o Zabbix não sabe que ele existe. Para registrar o SRV-02 no Zabbix, você precisa rodar:
+
+bash
+python3 zabbix/configurar.py
+Pré-requisito: Python 3 instalado no Mac. Confira:
+
+bash
+python3 --version
+Se der erro, instale pelo site https://www.python.org/downloads/ ou via Homebrew (brew install python).
+
+O configurar.py usa bibliotecas como requests e python-dotenv. Se der erro de importação, instale:
+
+bash
+pip3 install requests python-dotenv
+Depois rode:
+
+bash
+python3 zabbix/configurar.py
+Isso vai:
+
+Criar o grupo de hosts "Sala do servidor"
+
+Criar o template do ESP32
+
+Adicionar o host notebook-velho (SRV-01) — vai aparecer como offline por enquanto, porque não existe
+
+Adicionar o host srv02 — esse vai aparecer online no rack, com CPU, memória, containers, tudo
+
+Configurar Telegram (se você preencheu o token, que está vazio — não vai configurar)
+
+⚠️ Atenção: como você não preencheu NOTEBOOK_VELHO_IP (deixou 192.168.0.20), o host SRV-01 vai ser criado apontando para um IP que não existe. Sem problema: aparece como "offline", o que é esperado. O SRV-02, sim, vai aparecer funcionando.
+
+Ordem recomendada agora
+Verificar docker compose ps (4 serviços principais healthy)
+
+Abrir a central http://localhost:3000/... e me contar o que apareceu
+
+Rodar python3 zabbix/configurar.py para popular o Zabbix
+
+Recarregar a central — agora o rack deve ter 1 servidor (SRV-02) aparecendo
+
+Clicar no servidor no rack para ver a vista explodida (proxy, aplicação, banco)
+
+O que fazer se algo der errado
+Sintoma	Causa	Solução
+Central em branco	Plugin Zabbix ainda carregando	Espere 2 min, Cmd+R
+"Sem dados do Zabbix" no topo	Senha do .env difere	Confirme ZABBIX_PASSWORD=zabbix no .env; docker compose up -d grafana
+python3 zabbix/configurar.py dá erro de conexão	Zabbix ainda subindo	Espere 1-2 min; confirme docker compose ps
+python3 não encontrado	Python não instalado	Instale em python.org
+ModuleNotFoundError: requests	Faltam dependências	pip3 install requests python-dotenv
+Zabbix abre mas não tem "sala" no menu	Script ainda não rodou	Rode python3 zabbix/configurar.py
+Rode agora:
+
+bash
+docker compose ps
+E me mande:
+
+A saída do docker compose ps (pode colar)
+
+O que você vê em http://localhost:3000/d/sala-do-servidor/sala-do-servidor?kiosk&viewPanel=panel-1 (print ou descrição)
+
+Com isso eu te digo se está tudo certo ou se algo precisa de ajuste. 🚀
+
+Perfeito! Todos os 11 containers estão de pé. 🎉
+
+Análise rápida do docker compose ps:
+
+✅ postgres, zabbix-server, zabbix-web, grafana — todos Up
+
+✅ loja2-db, loja2-api — healthy
+
+✅ loja2-proxy, srv02-agente, gravador, gerador, acoes — Up
+
+✅ Nenhum restarting ou exited
+
+✅ Portas publicadas corretamente (8080, 3000, 8090, 8092, 8093, 8094)
+
+O zabbix-server ainda está Up 48 seconds sem (healthy) — isso é normal, ele demora um pouco mais para ficar healthy (healthcheck próprio). Se quiser confirmar, espere 1 min e rode docker compose ps de novo; ele deve aparecer como (healthy).
+
+Detalhe bom: acoes está em 127.0.0.1:8094 (só local), como o README promete. O resto está em 0.0.0.0, acessível na rede local.
+
+Agora vamos abrir a central
+👉 http://localhost:3000/d/sala-do-servidor/sala-do-servidor?kiosk&viewPanel=panel-1
+
+Login: admin / admin
+
+O que esperar (sem configurar.py ainda)
+Área	Estado esperado
+Sala 3D	Visível, com rack vazio ("Nenhum host com agente")
+Sensores	Cinza, "sem leitura"
+Estado da sala	Cinza
+Lista de servidores	Vazia
+Problemas / Eventos	Vazios
+Topo	"Sem problemas" ou aviso amarelo "Sem dados do Zabbix"
+Se aparecer "Sem dados do Zabbix" no topo
+Isso é esperado agora: o Grafana usa a senha ZABBIX_PASSWORD=zabbix do .env para ler o Zabbix, mas o usuário Admin do Zabbix ainda está com a senha padrão zabbix — o que bate. Então o Grafana deveria conseguir ler.
+
+Se aparecer o aviso amarelo, rode:
+
+bash
+docker compose logs --tail=30 grafana
+E me mande a saída. Pode ser que o Grafana ainda esteja carregando o plugin do Zabbix (leva 1-2 min na primeira subida). Espere 1 min e recarregue (Cmd+R) antes de investigar.
+
+Próximo passo: popular o Zabbix
+Depois de confirmar que a central abre (mesmo que vazia), rode o script que cria template, hosts e grupos:
+
+bash
+python3 zabbix/configurar.py
+Pré-requisitos:
+
+bash
+python3 --version
+Se der erro, instale Python em https://www.python.org/downloads/.
+
+Se requests ou dotenv faltarem:
+
+bash
+pip3 install requests python-dotenv
+O que o script vai fazer:
+
+Criar o grupo Sala do servidor
+
+Criar o template do ESP32 (com os 11 itens e 7 gatilhos)
+
+Criar o host esp32-sala — vai ficar offline (esperado, sem ESP32)
+
+Criar o host notebook-velho (SRV-01) — vai ficar offline (esperado, sem celular)
+
+Criar o host srv02 — esse vai ficar ONLINE e aparecer no rack! 🎁
+
+Configurar Telegram — pula (token vazio)
+
+Exportar o template para zabbix/template_esp32_sala.yaml
+
+Saída esperada: mensagens tipo [ok] Grupo ..., [ok] Template ..., [ok] Host srv02 .... Se der erro, me mande a saída completa.
+
+Depois de rodar o configurar.py
+Recarregue a central (Cmd+R)
+
+Você deve ver:
+
+1 servidor no rack (SRV-02) com LEDs verdes
+
+SRV-02 na lista da direita com CPU, memória, uptime
+
+Sensores ainda cinza (ESP32 não existe)
+
+Clique no SRV-02 no rack — deve abrir a vista explodida (proxy nginx, aplicação Loja, banco PostgreSQL) com partículas correndo nas ligações.
+
+Se o SRV-02 aparecer online no rack, o projeto está 100% funcional do lado do software. O que falta é só o hardware (ESP32) e o SRV-01 (celular).
+
+Resumo do que fazer agora
+Abrir a central: http://localhost:3000/d/sala-do-servidor/sala-do-servidor?kiosk&viewPanel=panel-1 (admin / admin)
+
+Me contar o que apareceu (print ou descrição)
+
+Rodar python3 zabbix/configurar.py
+
+Recarregar a central e me contar se o SRV-02 apareceu no rack
+
+Se travar em algum passo, me mande a mensagem de erro exata e o comando que gerou. 🚀
+
+🎉 A central NOC subiu perfeitamente!
+
+Olhe que coisa linda: a sala 3D isométrica está renderizando com o rack, a porta, o ar-condicionado, o sensor na parede e até o piso quadriculado. Os ícones de linha fina, o tema grafite, tudo exatamente como descrito no README.
+
+O aviso vermelho no topo é a nossa deixa para o próximo passo:
+
+"Sem dados do Zabbix: grupo 'Sala do servidor' não existe no Zabbix (rode zabbix/configurar.py)"
+
+O Grafana está conectando no Zabbix com sucesso (se não estivesse, o erro seria de autenticação). O problema é simplesmente que o Zabbix está vazio — o banco acabou de ser criado e não tem nenhum host ou grupo ainda.
+
+É exatamente o que o configurar.py resolve.
+
+O que fazer agora (no Terminal)
+1. Rodar o script de configuração
+bash
+python3 zabbix/configurar.py
+Se der erro de módulo faltando (ex.: ModuleNotFoundError: No module named 'requests'), instale as dependências e rode de novo:
+
+bash
+pip3 install requests python-dotenv
+python3 zabbix/configurar.py
+2. O que você vai ver na saída
+O script vai imprimir mensagens de sucesso, algo como:
+
+text
+[ok] Grupo "Sala do servidor" criado
+[ok] Template "ESP32 Sala do Servidor" criado/atualizado
+[ok] Host "esp32-sala" criado/atualizado
+[ok] Host "notebook-velho" criado/atualizado
+[ok] Host "srv02" criado/atualizado
+[ok] Template exportado para zabbix/template_esp32_sala.yaml
+(A ordem pode variar, e ele pode dizer "atualizado" em vez de "criado" — o script é idempotente.)
+
+Se der erro, me mande a saída completa (pode copiar/colar) e o comando exato que rodou.
+
+Depois de rodar o script
+3. Recarregue a central
+Pressione Cmd+R (ou F5) no navegador.
+
+O que deve mudar:
+
+Antes	Depois
+❌ Aviso vermelho "Sem dados do Zabbix"	✅ "Sem problemas" ou contagem de problemas
+❌ Rack vazio	✅ Rack com 1 servidor (SRV-02) com LEDs verdes
+❌ Lista de servidores vazia	✅ SRV-02 com CPU, memória, uptime
+❌ Sensores cinza	🔶 Sensores continuam cinza (ESP32 não existe ainda)
+4. Clique no SRV-02 no rack
+Deve abrir a vista explodida com:
+
+Proxy (nginx)
+
+Aplicação (Loja)
+
+Banco (PostgreSQL)
+
+Partículas correndo nas ligações
+
+Se o SRV-02 aparecer, você terá provado que
+✅ Docker + Zabbix + Grafana + PostgreSQL funcionam
+
+✅ A central 3D funciona
+
+✅ O Zabbix coleta métricas reais do SRV-02 (containers)
+
+✅ O Grafana lê o Zabbix via plugin
+
+✅ A vista explodida funciona
+
+Falta só o hardware (ESP32) e o SRV-01 (celular).
+
+Rode agora:
+bash
+python3 zabbix/configurar.py
+E me mande:
+
+A saída completa do script (texto)
+
+Uma nova captura da central após recarregar (Cmd+R)
+
+Se o SRV-02 apareceu, clique nele e me mande um print da vista explodida
+
+Se der erro em qualquer ponto, cole a mensagem inteira — não resuma. Cada palavra da mensagem ajuda a identificar a causa. 🚀
+
+🎉 Excelente! O script configurar.py funcionou perfeitamente.
+
+Repare no que aconteceu:
+
+❌ O erro de "Sem dados do Zabbix" sumiu.
+
+✅ O topo agora mostra a contagem de severidade (Desastre, Alta, Média, Atenção, Informação).
+
+✅ Os servidores apareceram na lateral direita:
+
+SRV-01 (192.168.0.20) — sem ping (esperado, não temos o celular ainda).
+
+SRV-02 (srv02-agente) — verde (online!). O Zabbix já está coletando os dados dele.
+
+✅ A sala 3D agora mostra as etiquetas contextuais ("Porta sem leitura", "Temperatura sem leitura", "Tomada sem leitura", "Piso sem leitura") apontando para os lugares certos.
+
+✅ O estado do "Sensor ambiental" está em vermelho com o erro: Cannot perform request: Connection timed out after 5000 milliseconds. Isso é perfeito e prova que a lógica está certa: o Zabbix está tentando buscar o ESP32 no IP 192.168.0.50 (que não existe) e, como não consegue, avisa.
+
+O status atual do seu projeto
+Componente	Status
+Zabbix, Grafana, PostgreSQL, SRV-02 (containers)	✅ 100% funcionando
+Central NOC 3D e comunicação com o Zabbix	✅ 100% funcionando
+ESP32 (sensores da sala)	⚠️ Falta o hardware (erro esperado)
+SRV-01 (celular)	⚠️ Falta configurar o celular
+A parte mais difícil (infraestrutura e software) está concluída.
+
+O próximo passo: "brincar" com o que já está no ar
+Como você já tem o SRV-02 rodando, vamos ver a melhor parte do painel: a vista explodida.
+
+1. Clique no SRV-02
+Na sala 3D (no rack) ou na lista da direita, clique no SRV-02. Ele deve deslizar para fora do rack e mostrar os componentes (proxy, aplicação e banco) com partículas correndo.
+
+2. Gere carga para ver as partículas se moverem
+O SRV-02 está online, mas não está processando nada, então as partículas vão estar devagar ou paradas. Vamos dar vida a ele:
+
+Abra uma nova aba no navegador e acesse o Gerador de carga: http://localhost:8092
+
+Clique em um botão para iniciar a carga (ele vai simular pessoas acessando a Loja).
+
+Volte para a aba da central de monitoramento e observe o SRV-02. As partículas entre o proxy, a aplicação e o banco vão começar a correr mais rápido, e a CPU/memória vão se mexer.
+
+3. Limpe o "fantasma" do SRV-01 (opcional)
+O SRV-01 está tentando fazer ping no IP 192.168.0.20 e falhando (por isso o "sem ping"). Se você quiser deixar o painel limpo enquanto não configura o celular:
+
+Abra o .env (open -e .env), mude NOTEBOOK_VELHO_IP=192.168.0.20 para vazio (NOTEBOOK_VELHO_IP=) e rode python3 zabbix/configurar.py novamente. O SRV-01 sumirá da tela.
+
+(Se quiser deixar como está para lembrar que falta essa parte, não tem problema nenhum).
+
+O que falta para terminar o laboratório?
+O ESP32 (Hardware): Você tem a placa e os sensores em mãos? Se sim, o próximo passo é abrir o gravador web em http://localhost:8090 (use o Chrome ou Edge), conectar o cabo e seguir o passo a passo de montagem do README.
+
+O SRV-01 (Celular): Você tem um Android disponível? O guia está na pasta celular/README.md. (Dá um pouco de trabalho, mas é bem documentado).
+
+Faça o teste agora:
+
+Abra o gerador de carga em http://localhost:8092 e inicie-o.
+
+Volte na central, clique no SRV-02 e veja a vista explodida.
+
+Me diga se as partículas estão correndo e se a gaveta lateral abriu mostrando CPU, memória e disco do container.
+
+Isso confirma que a integração Docker → Zabbix → Grafana → NOC 3D está 100% redonda! 🚀
+

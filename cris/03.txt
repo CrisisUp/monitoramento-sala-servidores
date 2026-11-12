@@ -1,0 +1,672 @@
+Atualmente:
+Mac
+16Gb
+tenho Docker, só isso por enquanto.
+Plano para Mac com 16 GB — só Docker por enquanto
+Perfeito. Com Mac + 16 GB + Docker instalado, você consegue subir Zabbix + Grafana + PostgreSQL + a central NOC 3D sem o ESP32 e sem os servidores SRV-01/SRV-02. A central vai abrir, mostrar a sala 3D com o rack vazio ("Nenhum host com agente"), e os sensores aparecerão como "sem leitura". Isso já valida toda a parte de software.
+
+O hardware (ESP32 e sensores) entra depois, num segundo momento. Vamos por etapas.
+
+Etapa 0 — Verificar que o Docker está mesmo funcionando
+Abra o Terminal (Spotlight → digite "Terminal") e rode:
+
+bash
+docker --version
+docker compose version
+O que deve aparecer:
+
+text
+Docker version 27.x.x, build ...
+Docker Compose version v2.x.x
+Se docker compose version der erro, tente docker-compose version (com hífen). Se nenhum dos dois funcionar, o Docker Desktop precisa ser atualizado.
+
+Confirme que o Docker Desktop está aberto: o ícone da baleia na barra de menu (canto superior direito) precisa estar estável, não animado. Clique nele e veja se aparece "Engine running".
+
+⚠️ Sobre o README: ele foi escrito para Windows 11 Pro. No Mac, o .env, os IPs e o firewall funcionam diferente. Vou te dar os comandos certos para Mac em cada passo — mas saiba que trechos como "Firewall do Windows" e "reserve o IP no roteador" não se aplicam exatamente. O resto (Docker, Zabbix, Grafana, central) é idêntico.
+
+Etapa 1 — Baixar o projeto
+Se você ainda não tem a pasta:
+
+bash
+cd ~/Downloads        # ou onde quiser guardar
+git clone <URL-do-repositório>
+cd monitoramento-sala-servidores
+Se não tem Git, baixe o ZIP pelo GitHub (Code → Download ZIP), descompacte e entre na pasta:
+
+bash
+cd ~/Downloads/monitoramento-sala-servidores-main
+Teste: rode ls e veja se aparece docker-compose.yml, README.md, firmware/, grafana/, zabbix/ etc.
+
+Etapa 2 — Criar o .env (o passo mais importante)
+O projeto não sobe sem o .env. Copie o modelo:
+
+bash
+cp .env.example .env
+Abra o .env no editor de texto. Pelo Terminal:
+
+bash
+open -e .env
+(Isso abre no TextEdit. Se preferir VS Code: code .env.)
+
+O que preencher agora (mínimo para subir)
+text
+ZABBIX_PASSWORD=umaSenhaForteAqui
+GRAFANA_ADMIN_USER=admin
+GRAFANA_ADMIN_PASSWORD=outraSenhaForteAqui
+ZABBIX_HOST_IP=192.168.x.x
+Como descobrir o IP do seu Mac
+No Terminal:
+
+bash
+ipconfig getifaddr en0
+en0 = Wi-Fi (na maioria dos Macs)
+
+en1 = Ethernet (se estiver com cabo)
+
+Se der erro, rode ifconfig | grep "inet " e veja o IP que começa com 192.168. ou 10.
+
+Anote o IP (algo como 192.168.1.42). Vai no ZABBIX_HOST_IP.
+
+O que deixar em branco por enquanto (sem ESP32 nem SRV-01)
+text
+ESP32_IP=
+NOTEBOOK_VELHO_IP=
+NOTEBOOK_VELHO_SO=
+TELEGRAM_TOKEN=
+TELEGRAM_CHAT_ID=
+Se o .env.example tiver valores de exemplo nesses campos, apague (deixe vazio). O sistema sobe sem eles; os sensores e o SRV-01 vão aparecer como "sem dados", o que é esperado.
+
+Teste: rode cat .env no Terminal e confira que as senhas e o IP estão lá, e que os campos de ESP32/Telegram estão vazios.
+
+Etapa 3 — Subir os containers
+Ainda na pasta do projeto:
+
+bash
+docker compose up -d
+O que vai acontecer:
+
+Baixa as imagens (PostgreSQL, Zabbix server, Zabbix web, Grafana) — alguns GB na primeira vez, pode levar de 5 a 15 minutos dependendo da sua internet.
+
+Depois de baixar, cria e inicia os containers em segundo plano (-d).
+
+Acompanhe o progresso:
+
+bash
+docker compose ps
+Você deve ver 4 serviços: postgres, zabbix-server, zabbix-web, grafana. Nas primeiras execuções, zabbix-server e zabbix-web ficam starting por 1–2 min até ficarem healthy.
+
+Se quiser ver os logs em tempo real:
+
+bash
+docker compose logs -f zabbix-server
+(Ctrl+C para sair do modo -f, sem parar os containers.)
+
+Aviso normal que pode aparecer no log
+O README já avisa: o host padrão "Zabbix server" tenta um agente em 127.0.0.1 que não existe. A mensagem interface unavailable não é problema — é esperado.
+
+Etapa 4 — Abrir as telas
+4.1 Zabbix
+Abra no navegador: http://localhost:8080
+
+Usuário: Admin
+
+Senha: a que você colocou em ZABBIX_PASSWORD
+
+Se a página não abrir, espere mais 1 minuto e recarregue. Se ainda não abrir:
+
+bash
+docker compose logs --tail=50 zabbix-web
+4.2 Grafana
+http://localhost:3000
+
+Usuário: GRAFANA_ADMIN_USER do .env
+
+Senha: GRAFANA_ADMIN_PASSWORD
+
+4.3 Central NOC (a tela cheia bonita)
+http://localhost:3000/d/sala-do-servidor/sala-do-servidor?kiosk&viewPanel=panel-1
+
+Se você vê a sala 3D com o rack, a instalação de software está completa. 🎉
+
+O que esperar sem ESP32 e sem SRV-01
+Área	Estado esperado
+Topo	"Sem problemas" ou um aviso de "Sem dados do Zabbix" (se o Grafana ainda não conectou)
+Coluna esquerda (temperatura, umidade, estado da sala)	Tudo cinza "sem leitura"
+Rack 3D	Vazio, com a mensagem "Nenhum host com agente"
+Lista de servidores	Vazia
+Problemas / Eventos	Vazios
+Isso é o correto. O sistema está no ar, só não tem dados para mostrar ainda.
+
+Etapa 5 — Rodar a configuração do Zabbix (opcional agora, mas útil)
+O zabbix/configurar.py cria template, grupo de hosts, itens, gatilhos, Telegram etc. Sem ESP32 e sem SRV-01, ele vai rodar mas criar hosts com IP vazio — o que gera itens "sem dados", sem problema.
+
+Se quiser rodar mesmo assim (para já deixar o template criado):
+
+Pré-requisito: Python 3 instalado. No Mac:
+
+bash
+python3 --version
+Se não tiver, instale pelo site https://www.python.org/downloads/ ou via Homebrew (brew install python).
+
+Instale a dependência (se o projeto usar requests ou similar — confira o README ou o topo do configurar.py):
+
+bash
+pip3 install requests
+Rode:
+
+bash
+python3 zabbix/configurar.py
+Se aparecer erro de conexão, confirme que ZABBIX_PASSWORD no .env é exatamente a senha que você usa para logar no Zabbix.
+
+💡 Dica: se preferir, pule esta etapa por enquanto. Você pode rodar depois, quando tiver o ESP32 — e aí o template já encontra os dados.
+
+Etapa 6 — O que não precisa fazer agora
+Para não se perder, ignore por enquanto:
+
+❌ Gravar o ESP32 (:8090) — só quando tiver a placa.
+
+❌ Configurar Telegram — só quando quiser alertas no celular.
+
+❌ SRV-01 (celular) e SRV-02 (containers) — só quando quiser os servidores no rack.
+
+❌ Reserva de DHCP no roteador — só quando tiver o ESP32.
+
+❌ Calibração de sensores — só com o hardware montado.
+
+Etapa 7 — Comandos do dia a dia (Mac)
+Guarde esta tabela. Tudo roda na pasta do projeto.
+
+Para…	Comando
+Subir tudo	docker compose up -d
+Ver o estado	docker compose ps
+Ver logs de um serviço	docker compose logs -f zabbix-server
+Parar tudo (dados guardados)	docker compose down
+Apagar tudo, inclusive dados	docker compose down -v ⚠️
+Recompilar o gravador	docker compose up -d --build gravador
+Reconfigurar o Zabbix	python3 zabbix/configurar.py
+Regerar o dashboard	python3 grafana/gerar_dashboard.py
+⚠️ Cuidado com down -v: o -v apaga os volumes (banco do Zabbix, dados do Grafana). Use só se quiser recomeçar do zero.
+
+Etapa 8 — Se algo der errado (Mac)
+Sintoma	Causa provável	Solução
+Cannot connect to the Docker daemon	Docker Desktop fechado	Abra o Docker Desktop e espere "Engine running"
+docker compose: command not found	Docker antigo	Atualize o Docker Desktop (versão 4.30+)
+Zabbix em :8080 não abre	Ainda subindo	Espere 2 min; docker compose logs zabbix-web
+Grafana abre, mas central em branco	Plugin Zabbix ainda baixando	Espere 2 min, F5 (Cmd+R)
+Central mostra "Sem dados do Zabbix" no topo	Senha do .env difere da do Zabbix	Confira ZABBIX_PASSWORD; rode docker compose up -d grafana para o Grafana reler
+.env não encontrado	Não copiou o modelo	cp .env.example .env e preencha de novo
+Porta 8080 ou 3000 já em uso	Outro serviço ocupando	lsof -i :8080 para ver quem usa; pare-o ou mude a porta no docker-compose.yml
+python3: command not found	Python não instalado	Instale em python.org ou brew install python
+pip3 install dá erro de permissão	Python do sistema protegido	Use pip3 install --user requests ou um venv
+Se aparecer erro que não está na tabela: cole no chat a mensagem inteira (não resuma) e o comando que gerou. Assim eu identifico a causa.
+
+Etapa 9 — Próximos passos (depois de ver funcionando)
+Quando a central abrir, me diga o que você viu (print ou descrição). Aí a gente decide a ordem:
+
+Adicionar o ESP32 (quando tiver a placa + sensores): passos 2 a 7 do README.
+
+Adicionar o SRV-02 (containers Docker — dá para fazer no próprio Mac, sem celular): docker compose up -d --build srv02-agente + python3 zabbix/configurar.py.
+
+Adicionar o SRV-01 (celular Android + Termux): guia em celular/README.md.
+
+Telegram (alertas no celular): bot no @BotFather + python3 zabbix/descobrir_chat_id.py.
+
+Resumo — o que fazer agora, em ordem
+Terminal: docker --version e docker compose version → confirmar que funcionam.
+
+Entrar na pasta do projeto: cd caminho/da/pasta.
+
+Criar o .env: cp .env.example .env e editar com open -e .env, preenchendo ZABBIX_PASSWORD, GRAFANA_ADMIN_PASSWORD e ZABBIX_HOST_IP (descoberto com ipconfig getifaddr en0).
+
+Subir: docker compose up -d e esperar terminar.
+
+Verificar: docker compose ps → 4 serviços rodando.
+
+Abrir: http://localhost:3000/d/sala-do-servidor/sala-do-servidor?kiosk&viewPanel=panel-1.
+
+Me contar o que apareceu (print ou descrição do que está na tela), para eu te guiar no próximo passo.
+
+Se travar em qualquer um desses 7, me mande a mensagem de erro exata e o comando que você rodou. Com isso eu te dou o próximo comando certo, sem adivinhar.
+
+Encontrados 28 resultados
+Não se preocupe, esse erro do Docker Desktop no Mac não é causado pela configuração do projeto, é um problema interno do próprio Docker. A mensagem panic: assertion failed: Page expected to be: 4 na captura de tela geralmente está relacionada à corrupção de arquivos de configuração ou imagem de disco do Docker Desktop após uma atualização, ou a conflitos de compatibilidade com o sistema macOS.
+
+Você pode tentar restaurar na seguinte ordem, do mais simples ao mais completo.
+
+Primeiro passo: tentar "Reset to factory defaults" (reiniciar configurações de fábrica)
+O botão azul "Reset to factory defaults" no canto inferior esquerdo da janela de erro é a solução mais direta.
+
+Clique nesse botão e confirme.
+
+Aguarde o Docker Desktop reiniciar e tentar restaurar o estado inicial.
+
+Atenção: isso apagará todas as imagens, containers e volumes que você já baixou no Docker (se houver). Como você acabou de instalar, o impacto deve ser mínimo.
+
+Se após clicar o Docker ainda não abrir, ou se abrir e fechar novamente, prossiga para o segundo passo.
+
+Segundo passo: encerrar completamente e reiniciar (ou atualizar)
+Forçar encerramento: na barra de menu superior do Mac, clique no ícone do Docker e selecione Quit Docker Desktop. Se não funcionar, abra o "Monitor de Atividade", procure por Docker e force o encerramento de todos os processos relacionados.
+
+Reiniciar o Docker Desktop: procure no Launchpad e abra novamente.
+
+Verificar atualizações: se você instalou o Docker Desktop há muito tempo, a versão pode estar desatualizada. Vá para a página oficial de download do Docker, baixe a versão mais recente para Mac e instale substituindo a antiga. A maioria dos problemas de inicialização do Docker no Mac é resolvida com atualizações de versão.
+
+Terceiro passo: limpar arquivos de configuração residuais (se os dois primeiros passos não funcionarem)
+Se o problema persistir, pode ser que os arquivos de configuração do Docker Desktop tenham sido corrompidos. Você precisa removê-los manualmente.
+
+Abra o Terminal (Terminal) e execute os seguintes comandos um por um para limpar os arquivos residuais do Docker (isso não exclui imagens, apenas redefiniu as configurações):
+
+bash
+rm -rf ~/Library/Group\ Containers/group.com.docker
+rm -rf ~/Library/Containers/com.docker.docker
+rm -rf ~/.docker
+Após executar, abra novamente o Docker Desktop. Ele solicitará permissões e criará automaticamente um novo ambiente limpo.
+
+Situação especial: usando chip Apple Silicon (M1/M2/M3)
+Se o seu Mac for um chip da série M, às vezes o Docker precisa do Rosetta para funcionar corretamente. Você pode tentar executar o seguinte comando no Terminal para garantir que o Rosetta está instalado:
+
+bash
+softwareupdate --install-rosetta
+Situação atual: recomendo que você comece clicando no botão "Reset to factory defaults" na janela de erro, esta é a maneira mais rápida de resolver esse problema. Após o Docker Desktop abrir normalmente, a baleia na barra de menu superior ficar estável, retorne e continue com o comando docker compose up -d para iniciar o projeto. Se após a reinicialização o problema persistir, me avise e continuaremos com a limpeza de arquivos residuais.
+
+Esta funcionando agora!
+Boa! 🎉 Se o Docker Desktop já abriu e a baleia 🐳 está estável na barra de menu, o pior já passou. Agora é só subir o projeto.
+
+Vamos seguir exatamente da Etapa 2 do plano que te passei (você já cumpriu a Etapa 0 e a 1, e o Docker está ok).
+
+O que fazer agora (no Terminal do Mac)
+1. Entrar na pasta do projeto
+bash
+cd caminho/para/a/pasta/monitoramento-sala-servidores
+(Se você não lembra onde salvou, digite cd com espaço e arraste a pasta do Finder para o Terminal — ele preenche o caminho sozinho.)
+
+Confirme que está no lugar certo:
+
+bash
+ls
+Deve aparecer docker-compose.yml, README.md, firmware/, grafana/, zabbix/, etc.
+
+2. Criar o .env
+bash
+cp .env.example .env
+Abra para editar:
+
+bash
+open -e .env
+No TextEdit, preencha só estas 4 linhas (deixe o resto vazio):
+
+text
+ZABBIX_PASSWORD=umaSenhaForteAqui
+GRAFANA_ADMIN_USER=admin
+GRAFANA_ADMIN_PASSWORD=outraSenhaForteAqui
+ZABBIX_HOST_IP=192.168.x.x
+Para descobrir o IP do seu Mac, em outra aba do Terminal:
+
+bash
+ipconfig getifaddr en0
+Copie o número que aparecer (algo como 192.168.1.42) e cole no ZABBIX_HOST_IP.
+
+Salve (Cmd+S) e feche o TextEdit.
+
+Confira se ficou certo:
+
+bash
+cat .env
+3. Subir os containers
+bash
+docker compose up -d
+⏳ A primeira vez demora (5 a 15 min): baixa imagens do PostgreSQL, Zabbix e Grafana. Vai aparecer muita linha. Não feche o Terminal, só espere terminar.
+
+4. Verificar se tudo subiu
+bash
+docker compose ps
+Você deve ver 4 serviços: postgres, zabbix-server, zabbix-web, grafana.
+
+Se todos estiverem running ou healthy → ✅
+
+Se algum estiver restarting ou exited → me mande a saída e rode docker compose logs <nome-do-serviço> e cole aqui.
+
+5. Abrir a central NOC
+No navegador:
+
+👉 http://localhost:3000/d/sala-do-servidor/sala-do-servidor?kiosk&viewPanel=panel-1
+
+Usuário: admin
+
+Senha: a que você colocou em GRAFANA_ADMIN_PASSWORD
+
+O que você deve ver (sem ESP32 e sem servidores):
+
+A sala 3D com o rack vazio ("Nenhum host com agente")
+
+Sensores cinza "sem leitura"
+
+Topo "Sem problemas" (ou aviso de "sem dados")
+
+Isso é o esperado. Significa que o software está 100% no ar.
+
+Se demorar para abrir
+O Grafana pode levar 1 a 2 minutos na primeira subida para carregar o plugin do Zabbix. Se a tela ficar em branco:
+
+Espere 1 min
+
+Recarregue (Cmd+R)
+
+Se continuar, rode:
+
+bash
+docker compose logs --tail=50 grafana
+E me mande a saída.
+
+Quando a central abrir, me conte:
+Você viu a sala 3D? (sim/não)
+
+Apareceu algum aviso vermelho no topo?
+
+Print ou descrição do que está na tela
+
+Com isso eu te digo o próximo passo — provavelmente adicionar o SRV-02 (containers, dá pra rodar no próprio Mac!) ou preparar para o ESP32 quando ele chegar.
+
+Roda o docker compose up -d e me fala o que aconteceu. 🚀
+
+Perfeito! Você me enviou o conteúdo exato do seu .env.example. Com base nele, aqui está o que você precisa fazer agora, linha por linha.
+
+O que preencher no seu .env (mínimo para subir)
+Abra o arquivo (se ainda não abriu):
+
+bash
+open -e .env
+E substitua apenas estas linhas. O resto pode ficar exatamente como está no modelo (os "troque-esta-senha" não impedem o Docker de subir, só são inseguros).
+
+1. ZABBIX_HOST_IP — troque pelo IP do seu Mac
+text
+ZABBIX_HOST_IP=192.168.0.10   →   ZABBIX_HOST_IP=<IP do seu Mac>
+Para descobrir:
+
+bash
+ipconfig getifaddr en0
+Cole o número que aparecer (ex.: 192.168.1.42).
+
+2. ZABBIX_PASSWORD — coloque a senha que você vai usar no Zabbix
+No modelo está vazio:
+
+text
+ZABBIX_PASSWORD=
+Coloque uma senha sua (pode ser simples para testar, ex.: zabbix):
+
+text
+ZABBIX_PASSWORD=zabbix
+⚠️ Importante: essa mesma senha vai ser usada pelo Grafana para ler o Zabbix. Se depois você trocar a senha na tela do Zabbix (Admin), tem que atualizar aqui e rodar docker compose up -d grafana de novo. Por isso, escolha agora a senha definitiva e use sempre ela.
+
+3. GRAFANA_ADMIN_PASSWORD — troque troque-esta-senha
+text
+GRAFANA_ADMIN_PASSWORD=troque-esta-senha   →   GRAFANA_ADMIN_PASSWORD=admin
+Pode deixar admin para testar. O usuário é GRAFANA_ADMIN_USER=admin.
+
+O que você pode deixar como está por enquanto
+Estes campos não impedem o Docker de subir. Você vai preencher quando for usar cada parte:
+
+Campo	Quando preencher
+ESP32_IP	Quando tiver o ESP32
+NOTEBOOK_VELHO_IP	Quando for usar o SRV-01 (celular)
+TELEGRAM_TOKEN / TELEGRAM_CHAT_ID	Quando quiser alertas no Telegram
+POSTGRES_PASSWORD	Pode deixar; é interno do Docker. Troque se quiser mais segurança
+PG_ADMIN_SENHA, LOJA_DB_SENHA, PG_MONITOR_SENHA	Quando for usar o SRV-01 (celular)
+LOJA2_DB_SENHA	Quando for usar o SRV-02 (containers no Mac)
+ACOES_ZABBIX_SENHA, ACOES_PG_SENHA	Quando for usar os botões de ação na central
+💡 Atenção com o #: no .env, tudo depois de # é comentário. No modelo, há linhas como:
+
+text
+PG_ADMIN_SENHA=troque-por-uma-senha-aleatoria      # superusuário "postgres"
+Se você não editar, o valor lido pelo Docker será troque-por-uma-senha-aleatoria (o # ... é ignorado). Isso funciona para subir. Mas se você colocar uma senha nova, mantenha o # no fim — ele é só para humanos lerem.
+
+Resumo do que seu .env deve ter agora
+text
+ZABBIX_HOST_IP=<IP do seu Mac>        ← descoberto com ipconfig getifaddr en0
+ZABBIX_PASSWORD=zabbix                 ← escolha uma e lembre
+GRAFANA_ADMIN_PASSWORD=admin           ← ou outra
+O resto deixe como está. Salve (Cmd+S) e feche o TextEdit.
+
+Depois de salvar, rode:
+bash
+docker compose up -d
+E aguarde (5 a 15 min na primeira vez). Quando terminar:
+
+bash
+docker compose ps
+Me mande a saída do docker compose ps (pode copiar e colar aqui) e o que aparecer na tela da central:
+
+👉 http://localhost:3000/d/sala-do-servidor/sala-do-servidor?kiosk&viewPanel=panel-1
+
+Com isso eu te digo se subiu certinho ou se algum serviço precisa de ajuste. 🚀
+
+❯ ls
+ acoes    app       cris   firmware   grafana    zabbix              󰂺 README.md
+ agente   celular   docs   gerador    gravador   docker-compose.yml
+╭─ ~/Desktop/monitoramento-sala-servidores  on main !1 ?2 ···································································································· ✔  system   at 21
+╭─ ~/Desktop/monitoramento-sala-servidores  on main !1 ?2 ·······································································
+╭─ ~/Desktop/monitoramento-sala-servidores  on main !1 ?2 ·················································
+╭─ ~/Desktop/monitoramento-sala-servidores  on main !1 ?2 ·········································· ✔  sy
+╭─ ~/Desktop/monitoramento-sala-servidores  on main !1 ?2 ···················· ✔  system   at 21
+╭─ ~/Desktop/monitoramento-sala-servidores  on main !1 ?2 ············ ✔  system   at 2
+╭─ ~/Desktop/monitoramento-sala-servidores  on main !1 ?2 ··· ✔  system   at 21:45
+╭─ ~/De/monitoramento-sala-servidores  on main !1 ?2 ··· ✔  system   at 21:45:25
+❯ cp .env.example .env
+❯ open -e .env
+❯ ipconfig getifaddr en0
+╭─ ~/De/monitoramento-sala-servidores  on main !1 ?2 
+╰─
+Opa, quase tudo certo! O comando ipconfig getifaddr en0 não retornou nada (a linha ficou vazia). Isso significa que o seu Mac não está conectado pelo Wi-Fi en0 — provavelmente está usando cabo Ethernet, ou o Wi-Fi está desligado, ou está em outra interface (en1, en2...).
+
+Vamos descobrir o IP de outro jeito. Rode este comando:
+
+bash
+ifconfig | grep "inet "
+Ele vai mostrar várias linhas. A que você quer é a que NÃO começa com 127.0.0.1 (esse é o localhost) e NÃO está na faixa 172.17.x.x (essa é a rede interna do Docker).
+
+Exemplo do que vai aparecer:
+
+text
+inet 127.0.0.1 netmask 0xff000000
+inet 192.168.1.42 netmask 0xffffff00 broadcast 192.168.1.255
+Neste exemplo, o IP do Mac é 192.168.1.42 (a linha 192.168.x.x).
+
+Se preferir, use o comando direto que filtra só o que interessa
+Rode este (mais limpo):
+
+bash
+ifconfig | grep "inet " | grep -v 127.0.0.1 | grep -v 172.17
+Ou, ainda mais elegante, no macOS:
+
+bash
+ipconfig getifaddr en1
+Se en0 não funcionou, tente en1. Se der resultado, esse é o seu IP.
+
+Depois que descobrir o IP
+Volte ao .env (que já está aberto no TextEdit):
+
+bash
+open -e .env
+Cole o IP na linha:
+
+text
+ZABBIX_HOST_IP=192.168.x.x
+Preencha também:
+
+text
+ZABBIX_PASSWORD=zabbix
+GRAFANA_ADMIN_PASSWORD=admin
+Salve (Cmd+S) e feche o TextEdit.
+
+Enquanto isso, sobre o ls que você mostrou
+Está tudo certo. O ls mostra que você está na pasta correta:
+
+✅ docker-compose.yml presente
+
+✅ grafana/, zabbix/, firmware/, etc.
+
+⚠️ cris/ e docs/ aparecem (como no tree.txt — a cris/ é a que sugeri remover, mas não afeta o funcionamento)
+
+!1 ?2 no prompt: você tem 1 commit pendente e 2 arquivos não rastreados (provavelmente o .env que acabou de criar — o .gitignore deveria cobrir, mas dá para conferir depois).
+
+Próximo passo
+Rode:
+
+bash
+ifconfig | grep "inet " | grep -v 127.0.0.1 | grep -v 172.17
+Cole aqui a saída (pode copiar/colar) que eu confirmo qual é o IP certo e te digo exatamente o que colocar no .env.
+
+Se preferir adivinhar pelo formato, a linha que tem 192.168.x.x ou 10.x.x.x é a sua. A 172.17.x.x é do Docker — ignore.
+
+❯ ifconfig | grep "inet "
+        inet 127.0.0.1 netmask 0xff000000
+        inet 192.168.1.7 netmask 0xffffff00 broadcast 192.168.1.255
+Achamos! Seu IP é 192.168.1.7. A linha 127.0.0.1 é o localhost (ignore).
+
+Agora vamos finalizar o .env. O TextEdit já deve estar aberto com o arquivo. Se fechou, abra de novo:
+
+bash
+open -e .env
+O que você precisa alterar no .env (só 3 linhas)
+Role até encontrar cada linha abaixo e edite exatamente assim:
+
+1. IP do seu Mac
+text
+ZABBIX_HOST_IP=192.168.0.10
+mude para:
+
+text
+ZABBIX_HOST_IP=192.168.1.7
+2. Senha do Zabbix (está vazia no modelo)
+text
+ZABBIX_PASSWORD=
+mude para:
+
+text
+ZABBIX_PASSWORD=zabbix
+3. Senha do Grafana
+text
+GRAFANA_ADMIN_PASSWORD=troque-esta-senha
+mude para:
+
+text
+GRAFANA_ADMIN_PASSWORD=admin
+Pode usar senhas mais fortes se quiser, mas para o primeiro teste zabbix e admin funcionam e são fáceis de lembrar. Se trocar depois, é só voltar no .env e rodar docker compose up -d grafana.
+
+Pode deixar como está (não afeta agora)
+Todo o resto do arquivo:
+
+ESP32_IP=192.168.0.50 → fica; só importa quando o ESP32 chegar
+
+NOTEBOOK_VELHO_IP=192.168.0.20 → fica
+
+TELEGRAM_TOKEN= e TELEGRAM_CHAT_ID= → vazios, ok
+
+POSTGRES_PASSWORD=troque-esta-senha → pode ficar; é só interno do Docker
+
+PG_ADMIN_SENHA, LOJA_DB_SENHA, etc. → podem ficar; só usados quando ligar SRV-01/SRV-02
+
+Salve (Cmd+S) e feche o TextEdit.
+Depois, no Terminal, confira se as 3 linhas ficaram certas:
+
+bash
+grep -E "ZABBIX_HOST_IP|ZABBIX_PASSWORD|GRAFANA_ADMIN_PASSWORD" .env
+Deve aparecer algo assim:
+
+text
+ZABBIX_HOST_IP=192.168.1.7
+ZABBIX_PASSWORD=zabbix
+GRAFANA_ADMIN_PASSWORD=admin
+(as linhas de POSTGRES_* não aparecem porque o grep só busca essas 3)
+
+Se estiver igual, me confirme e eu te passo o próximo comando: o docker compose up -d. 🚀
+
+Se aparecer algo diferente (ex.: ZABBIX_HOST_IP=192.168.0.10 ainda), me mande a saída do grep que eu corrijo.
+
+ficaram
+Perfeito! 🎯 Agora é o grande momento: subir o projeto.
+
+1. Rodar o Docker Compose
+No Terminal, dentro da pasta do projeto:
+
+bash
+docker compose up -d
+O que vai acontecer:
+
+Na primeira vez, ele baixa as imagens (PostgreSQL, Zabbix, Grafana). Isso demora 5 a 15 minutos dependendo da sua internet.
+
+Vai aparecer muita linha no terminal (Pulling..., Downloading..., Created...).
+
+Não feche o Terminal. Espere voltar o prompt ❯.
+
+2. Enquanto espera, o que observar
+Se quiser acompanhar o progresso em outra aba do Terminal (Cmd+T abre nova aba):
+
+bash
+docker compose ps
+Você vai ver os serviços mudando de created → starting → running → healthy. healthy é o que queremos.
+
+3. Quando o up -d terminar
+Rode:
+
+bash
+docker compose ps
+Você deve ver 4 serviços: postgres, zabbix-server, zabbix-web, grafana.
+
+Esperado (pode levar 1-2 min para todos ficarem healthy):
+
+text
+NAME                STATUS
+postgres            Up (healthy)
+zabbix-server       Up (healthy)
+zabbix-web          Up (healthy)
+grafana             Up (healthy)
+Se algum estiver restarting ou exited, me mande a saída completa do docker compose ps e rode:
+
+bash
+docker compose logs --tail=50 <nome-do-servico-com-problema>
+E cole aqui.
+
+4. Abrir as telas (quando os 4 estiverem healthy)
+Zabbix
+👉 http://localhost:8080
+
+Usuário: Admin
+
+Senha: zabbix
+
+Grafana
+👉 http://localhost:3000
+
+Usuário: admin
+
+Senha: admin
+
+🎯 Central NOC (o que você quer ver)
+👉 http://localhost:3000/d/sala-do-servidor/sala-do-servidor?kiosk&viewPanel=panel-1
+
+A primeira subida do Grafana pode levar 1–2 minutos carregando o plugin do Zabbix. Se a central ficar em branco, espere 1 min e recarregue (Cmd+R). Se persistir, me avise.
+
+5. O que você deve ver na central (sem ESP32 e sem servidores)
+Área	Estado esperado
+Sala 3D	Visível, com rack vazio ("Nenhum host com agente")
+Sensores (temperatura, umidade)	Cinza, "sem leitura"
+Estado da sala	Cinza
+Lista de servidores	Vazia
+Problemas / Eventos	Vazios
+Topo	"Sem problemas" ou aviso amarelo "Sem dados do Zabbix" (pode aparecer nos primeiros segundos)
+Isso é normal e correto. Significa que o software está 100% no ar. Os dados aparecem quando o ESP32 (sensores) e o SRV-01/SRV-02 (servidores) entrarem.
+
+Rode agora:
+bash
+docker compose up -d
+E me conte:
+
+Quanto tempo demorou? (ou se ainda está rodando)
+
+A saída do docker compose ps depois (cole aqui)
+
+O que apareceu na central (print ou descrição)
+
+Boa sorte! 🚀
+

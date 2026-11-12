@@ -1,0 +1,959 @@
+Análise da estrutura de pastas (screenshot do repositório)
+O screenshot confirma e detalha o que o documento textual já descrevia. A estrutura é coerente com a arquitetura e revela alguns detalhes que merecem comentário — inclusive uma inconsistência entre o texto e a árvore.
+
+1. O que a árvore confirma (pontos fortes)
+Pasta/arquivo	Confirmação
+acoes/agente/srv02/reiniciar-app.sh + acoes.conf	A receita por servidor descrita no texto existe de fato. Só srv02 aparece — falta srv01/, o que pode ser intencional (SRV-01 = celular, receita fica no próprio celular via celular/7-acoes.sh) ou lacuna.
+celular/ com 1-termux-ssh.sh … 8-agendamento.sh	O guia numerado do SRV-01 é executável, não só documentação. Boa prática.
+app/ com Dockerfile, esquema.sql, loja.py, nginx-loga.conf	SRV-02 é reprodutível do zero.
+firmware/src/ + platformio.ini	Código ESP32 isolado, sem mistura com infra.
+grafana/noc/ com vendor/, acoes.js, cena3d.js, dados.js, estilo.css, interface.js, noc.js	Exatamente os 6 arquivos descritos. vendor/ (Three.js) vendorizado — offline garantido.
+grafana/gerar_dashboard.py + provisioning/	Dashboard gerado e provisionado automaticamente.
+gravador/ com Dockerfile, nginx.conf, site/	Multi-estágio compila + serve.
+zabbix/ com configurar.py, descobrir_chat_id.py, template_esp32_sala.yaml	Tudo que o texto promete.
+A separação infra (acoes/, zabbix/, grafana/, gravador/, docker-compose.yml) × aplicação (app/, celular/, firmware/) é limpa.
+
+2. Inconsistências entre a árvore e o texto
+Estas são as mais relevantes:
+
+2.1 cris/ e docs/ — não citados no documento
+A árvore mostra duas pastas que não aparecem na seção "Estrutura das pastas" do README:
+
+cris/ (com .gitkeep) — vazia ou placeholder. Provavelmente resquício de trabalho em andamento ou pasta pessoal. Deveria ser removida ou documentada, senão polui o clone.
+
+docs/ (com .gitkeep) — idem. Se o README já é a documentação principal, ou docs/ é para diagramas/imagens futuras, ou é resíduo.
+
+Sugestão: remover .gitkeep de pastas sem uso ou adicionar uma linha na tabela de estrutura explicando o que são.
+
+2.2 acoes/agente/srv01/ ausente
+O texto diz:
+
+acoes/agente/ — As receitas de cada servidor (srv01/, srv02/) e a lista do que o agente pode executar (acoes.conf)
+
+Mas a árvore mostra só srv02/. Como o SRV-01 é um celular Android (Termux), a receita dele está em celular/7-acoes.sh — o que faz sentido operacionalmente, mas contradiz o texto. Ou:
+
+(a) o README está desatualizado e deve dizer "receitas em celular/ (SRV-01) e acoes/agente/srv02/ (SRV-02)"; ou
+
+(b) falta criar acoes/agente/srv01/ como espelho/symlink da receita do celular.
+
+Isso é o achado mais importante da árvore.
+
+2.3 grafana/noc/vendor/ não listado no texto
+A tabela de pastas lista noc.js, dados.js, interface.js, cena3d.js, acoes.js, estilo.css — mas não menciona vendor/, que é exatamente onde está a Three.js (licença MIT) e o que garante o funcionamento offline. A tabela deveria incluir vendor/ com a nota de licença.
+
+2.4 Arquivos ocultos de Git
+A árvore mostra:
+
+.dockerignore, .env.example, .gitattributes, .gitignore na raiz ✅
+
+.gitkeep em acoes/agente/, acoes/, cris/, docs/, gravador/site/ — normal para versionar pastas vazias, mas em acoes/ e acoes/agente/ não faz sentido se já há acoes.py, agente/srv02/ etc. Provavelmente resíduo de quando a pasta estava vazia. Pode remover.
+
+2.5 firmware/src/ recolhido
+O src/ está colapsado na árvore, mas o texto garante que dentro há main.cpp, pagina_portal.h, pagina_status.h, pagina_atualizar.h. Sem como confirmar pela imagem — mas a coerência do resto sugere que está certo.
+
+3. O que a árvore não mostra (e poderia)
+README.md aparece na raiz ✅ e em app/, celular/ ✅ — bom. Mas não há README em acoes/, grafana/, zabbix/, embora cada um seja um subsistema não trivial. Pelo menos acoes/ merecia um README curto (o texto já explica bem, mas quem abre a pasta no GitHub não vê).
+
+Sem tests/ em lugar nenhum — confirma a lacuna que apontei na análise anterior.
+
+Sem .editorconfig, .pre-commit-config.yaml, CI (.github/workflows/) — aceitável para lab, mas ausência total de automação de qualidade é notável dado o nível de rigor do resto.
+
+Sem LICENSE na raiz — o README menciona MIT para a Three.js vendorizada, mas o projeto em si não declara licença. Se for compartilhado, vale definir.
+
+Sem Makefile/justfile — dado o número de comandos (docker compose up -d, python zabbix/configurar.py, python grafana/gerar_dashboard.py), um Makefile com alvos (make up, make configurar, make dashboard) reduziria erro de digitação.
+
+4. Avaliação da organização
+Pontos fortes:
+
+Separação por domínio clara: infra (acoes/, zabbix/, grafana/, gravador/), aplicação (app/), dispositivo (firmware/), servidor móvel (celular/).
+
+Scripts numerados em celular/ (1-…, 2-…, …) — excelente para guia passo a passo executável.
+
+Arquivos de configuração junto ao que configuram (nginx.conf em gravador/ e em app/, acoes.conf em acoes/agente/).
+
+Dashboard como código (gerar_dashboard.py → sala-do-servidor.json) em vez de JSON editado à mão.
+
+Pontos de atenção:
+
+cris/ e docs/ sem propósito documentado — ruído.
+
+.gitkeep redundante onde já há conteúdo real.
+
+README e árvore divergem em srv01/ e vendor/ — precisa sincronizar.
+
+Sem READMEs de subsistema em acoes/, grafana/, zabbix/.
+
+Sem automação de qualidade (CI, testes, lint).
+
+5. Sugestões práticas (ordenadas por esforço/impacto)
+#	Ação	Esforço	Impacto
+1	Sincronizar README × árvore: corrigir a linha de acoes/agente/ (dizer que SRV-01 está em celular/) e adicionar vendor/ à tabela.	Baixo	Alto (elimina contradição)
+2	Remover cris/ e docs/ (ou documentá-las).	Baixo	Médio
+3	Remover .gitkeep de acoes/ e acoes/agente/ (já têm conteúdo).	Baixo	Baixo
+4	Criar README.md curto em acoes/, grafana/ e zabbix/ (5–10 linhas: o que é, como rodar, o que não tocar).	Médio	Médio
+5	Adicionar Makefile com alvos up, down, configurar, dashboard, logs.	Médio	Médio
+6	Adicionar LICENSE na raiz (MIT, se for o caso).	Baixo	Médio
+7	CI mínimo (GitHub Actions): python -m py_compile nos scripts, pio run no firmware, docker compose config para validar o compose.	Alto	Alto
+6. Conclusão
+A árvore confirma a maturidade do projeto descrito no README: há código real por trás de cada promessa (scripts numerados, receitas por servidor, dashboard gerado, firmware isolado, vendor offline). A organização por domínio é limpa e escalável.
+
+O único problema substantivo é a divergência README × árvore em dois pontos (srv01/ e vendor/), que num projeto didático importa muito — o leitor que confia no README e não acha srv01/ fica perdido. Os demais achados (cris/, docs/, .gitkeep, ausência de READMEs de subsistema, falta de CI/LICENSE) são ruído de manutenção, não de arquitetura.
+
+Nota da estrutura: 8,5/10 — excelente para um lab, com ajustes pequenos que a levariam a 9,5.
+
+Qual comando non terminal do Mac uso para mostrar essa estrutura de pastas?
+Comando para mostrar a estrutura de pastas no Terminal do Mac
+O comando nativo é tree — mas ele não vem instalado no macOS por padrão. Você precisa instalá-lo primeiro via Homebrew.
+
+1. Instalar o tree (uma vez só)
+Se ainda não tem o Homebrew:
+
+bash
+/bin/bash -c "$(curl -fsSL https://raw.githubusercontent.com/Homebrew/install/HEAD/install.sh)"
+Depois instale o tree:
+
+bash
+brew install tree
+2. Gerar a estrutura (o comando em si)
+Na pasta do projeto:
+
+bash
+tree
+Isso já mostra a árvore completa, mas sem os arquivos ocultos (.gitignore, .env.example etc.).
+
+Para ficar igual ao screenshot (mostrando .gitkeep, .dockerignore, .gitignore…):
+bash
+tree -a
+-a = all, inclui arquivos/pastas ocultos (começados com .).
+
+Versão mais limpa, ignorando ruído:
+bash
+tree -a -I '.git|node_modules|.DS_Store'
+-I = ignore, exclui padrões separados por |.
+
+.git evita listar centenas de arquivos internos do Git.
+
+.DS_Store é o lixo que o Finder cria no Mac.
+
+node_modules só importa se você tiver JS no projeto.
+
+Versão com tamanhos e permissões (útil para auditoria):
+bash
+tree -a -h -p -I '.git|.DS_Store'
+-h = tamanhos legíveis (4.0K, 1.2M).
+
+-p = permissões (-rw-r--r--).
+
+3. Variações úteis para este projeto
+Só até 2 níveis de profundidade (visão macro):
+bash
+tree -a -L 2 -I '.git|.DS_Store'
+-L 2 = level, desce só 2 níveis (raiz + subpastas).
+
+Só diretórios (sem arquivos):
+bash
+tree -d -a -I '.git|.DS_Store'
+-d = directories only.
+
+Salvar em arquivo (para colar no README):
+bash
+tree -a -I '.git|.DS_Store|.gitkeep' > estrutura.txt
+Exatamente como no screenshot (com srv02/ expandido e o resto recolhido)
+O tree não faz colapso interativo como o VS Code. Para aquele visual "com setinhas", você tem duas opções:
+
+Opção A — só descer o nível onde quer detalhe:
+
+bash
+tree -a -L 3 -I '.git|.DS_Store'
+Opção B — usar find + sed para simular indentação (mais trabalhoso, raramente vale a pena).
+
+Para o screenshot específico (mostrando acoes/agente/srv02/reiniciar-app.sh, mas escondendo firmware/src/), o mais próximo é:
+
+bash
+tree -a -L 4 -I '.git|.DS_Store|node_modules|vendor'
+e mentalmente ignorar o que não interessa.
+
+4. Alternativas sem instalar nada
+Se não quiser usar o Homebrew:
+
+find nativo do macOS (sem cores, mais verboso):
+bash
+find . -not -path '*/\.git/*' -not -name '.DS_Store' | sort | sed -e 's;[^/]*/;|____;g;s;____|; |;g'
+ls -R (recursivo, mas feio):
+bash
+ls -R
+Funciona, mas mistura diretórios e arquivos sem hierarquia visual — não recomendado para README.
+
+fd (alternativa moderna ao find, via Homebrew):
+bash
+brew install fd
+fd --hidden --exclude .git --exclude .DS_Store
+Não desenha árvore, mas lista rápido e limpo.
+
+5. Recomendação final
+Para reproduzir o screenshot fielmente (com ocultos, sem lixo de Git/Mac):
+
+bash
+tree -a -I '.git|.DS_Store|node_modules|vendor|__pycache__|*.pyc' -L 4
+Isso mostra acoes/agente/srv02/reiniciar-app.sh (nível 3) e grafana/noc/acoes.js (nível 3), esconde o vendor/ da Three.js (que polui) e não desce além do necessário.
+
+Se quiser o mesmo resultado do screenshot (com vendor/ aparecendo mas recolhido), remova vendor do -I.
+
+Análise da árvore real (tree.txt)
+Este tree.txt é a fonte de verdade — resolve as dúvidas da análise anterior (baseada no screenshot) e revela detalhes novos. Vou comparar com o README e com o screenshot.
+
+1. O que foi resolvido (boas notícias)
+Antes (dúvida)	Agora (confirmado)	Status
+acoes/agente/srv01/ existia?	Sim: srv01/ com encerrar-ociosas.sh e reiniciar-app.sh	✅ O README estava certo; o screenshot tinha colapsado srv01/
+vendor/ existia?	Sim: three.module.min.js + LICENSE-three.txt + jsm/ (OrbitControls, EffectComposer, UnrealBloomPass etc.)	✅ Vendorização real e completa
+firmware/src/ tinha os .h?	Sim: main.cpp, pagina_portal.h, pagina_status.h, pagina_atualizar.h	✅
+gravador/site/ tinha o quê?	Sim: app.js + index.html (esptool-js)	✅
+Nada de essencial do README está faltando. A árvore confirma a arquitetura.
+
+2. O que o tree.txt revela além do README
+2.1 Itens que o README não menciona
+Item	O que é	Observação
+gerador/gerador.py	Pasta + script não listados na tabela "Estrutura das pastas"	Aparece em "Endereços e logins" como "Gerador de carga da Loja (:8092)" — mas não está na tabela de pastas. Falta documentar.
+cris/01.txt	Arquivo pessoal (nome "cris" + 01.txt)	Não documentado. Provavelmente anotação de trabalho/estudo. Deveria sair do repo ou ir para docs/.
+docs/	Pasta vazia (sem .gitkeep no tree — mas existe)	Não documentada. Se vazia, o Git não a versiona; então é só local.
+grafana/provisioning/plugins/zabbix.yaml	Plugin provisionado	README cita "plugins" mas não detalha o arquivo. OK, é detalhe.
+grafana/dashboards/sala-do-servidor.json	JSON gerado fora de provisioning/dashboards/	O README diz "gerar o JSON do dashboard" → sala-do-servidor.json. Mas o provisioning/dashboards/sala.yaml aponta para ele. Estrutura correta, só não explicitada.
+acoes/agente/srv02/Dockerfile	O SRV-02 builda a imagem do agente	README menciona docker compose up -d --build srv02-agente — confirma.
+grafana/noc/vendor/jsm/...	Muitos shaders e passes da Three.js	Mostra que a cena 3D usa UnrealBloomPass (brilho), EffectComposer, OrbitControls — confirma o visual "NOC" descrito.
+2.2 Divergências com o README (agora visíveis)
+README diz	tree.txt mostra	Ação
+Tabela de pastas não lista gerador/	gerador/gerador.py existe	Adicionar à tabela
+Tabela não lista grafana/dashboards/	Existe com sala-do-servidor.json	Adicionar (ou explicar que é saída do gerador)
+Tabela não lista grafana/noc/vendor/	Existe com Three.js + LICENSE	Adicionar (é o que garante offline)
+Tabela não lista acoes/agente/srv01/ e srv02/ individualmente	Ambos existem	Já cita srv01/, srv02/ — OK
+Fala de cris/	cris/01.txt existe	Remover ou documentar
+3. Problemas que o tree.txt confirma
+3.1 Pasta cris/ — nome pessoal dentro do repo
+cris/01.txt é claramente uma anotação pessoal (ou rascunho). Num repositório didático, isso:
+
+Polui o clone de quem baixa.
+
+Pode conter informação pessoal (mesmo que 01.txt seja inofensivo).
+
+Confunde o leitor que tenta entender a estrutura.
+
+Ação: mover para fora do repo (ou para docs/, renomeado, se for material de estudo).
+
+3.2 docs/ vazia
+Sem .gitkeep, o Git não a versiona — então provavelmente é só uma pasta local. Se for intencional (para diagramas futuros), colocar um README.md curto explicando. Se não, remover.
+
+3.3 gerador/gerador.py fora do README
+O serviço :8092 é citado em "Endereços e logins", mas não na tabela de pastas. Quem lê o README não sabe onde está o código do gerador de carga.
+
+3.4 Ausência de README.md em subsistemas
+A árvore mostra README.md só em:
+
+raiz ✅
+
+app/ ✅
+
+celular/ ✅
+
+Faltam em acoes/, grafana/, zabbix/, gerador/, gravador/, firmware/. Pelo menos acoes/ e gerador/ mereciam um README curto.
+
+3.5 vendor/ sem menção explícita
+A tabela de pastas do README lista os 6 arquivos JS de noc/, mas não cita vendor/. É justamente o que garante "nada depende de internet". Deveria estar na tabela com nota de licença MIT.
+
+4. O que o tree.txt mostra de muito bom
+acoes/agente/srv01/ e srv02/ simétricos: cada um com encerrar-ociosas.sh e reiniciar-app.sh. O README estava certo; o screenshot enganou.
+
+srv02/ tem Dockerfile — o agente do SRV-02 é empacotado, não instalado à mão. Consistente com docker compose up -d --build srv02-agente.
+
+vendor/ com LICENSE-three.txt — cuidado com licença MIT explícito. Excelente.
+
+grafana/provisioning/ completo: dashboards/sala.yaml, datasources/zabbix.yaml, plugins/zabbix.yaml. Tudo provisionado como código.
+
+celular/ com 8 scripts numerados + README — o guia do SRV-01 é executável do zero.
+
+app/ com esquema.sql, loja.py, nginx-loja.conf, Dockerfile, README.md — aplicação completa e reprodutível.
+
+Contagem final: 30 diretórios, 63 arquivos — tamanho coerente com um lab, nem inflado nem superficial.
+
+5. Tabela de ações corretivas (atualizada)
+#	Ação	Onde	Esforço	Impacto
+1	Adicionar gerador/ à tabela de pastas do README	README	Baixo	Alto
+2	Adicionar grafana/dashboards/ e vendor/ à tabela	README	Baixo	Médio
+3	Remover cris/ do repo (ou mover para docs/ com nome neutro)	Repo	Baixo	Médio
+4	Resolver docs/ vazia (README curto ou remover)	Repo	Baixo	Baixo
+5	Criar README.md em acoes/ e gerador/ (5–10 linhas)	Repo	Médio	Médio
+6	Confirmar que provisioning/dashboards/sala.yaml aponta para ../dashboards/sala-do-servidor.json	grafana/	Baixo	Baixo
+7	Adicionar Makefile com up, configurar, dashboard	raiz	Médio	Médio
+6. Veredito atualizado
+O tree.txt eleva a nota da estrutura em relação ao que o screenshot sugeria:
+
+srv01/ existe → README estava certo, screenshot enganou.
+
+vendor/ completo e com LICENSE → offline garantido de verdade.
+
+Provisioning e dashboards separados corretamente → dashboard como código.
+
+Os problemas remanescentes são de documentação (README desatualizado em 3 pontos) e de higiene (cris/, docs/ vazia). Nenhum é arquitetural.
+
+Nota da estrutura (com tree.txt): 9/10 — sobe meio ponto em relação à análise do screenshot, porque as "lacunas" que pareciam existir (srv01, vendor) na verdade estavam lá. Os 3 pontos restantes para 9,5 são: sincronizar README, remover cris/, e READMEs de subsistema.
+
+Quero colocar esta estrutura de pastas no README.md
+Como colocar a estrutura de pastas no README.md
+Você tem três caminhos, do mais simples ao mais profissional. Vou mostrar os três e recomendar o melhor para este projeto.
+
+Opção 1 — Bloco de código text (simples, rápido, funciona em qualquer lugar)
+Substitua a tabela atual "Estrutura das pastas" por um bloco de código. O Markdown preserva a árvore exatamente como está.
+
+markdown
+## Estrutura das pastas
+
+```text
+monitoramento-sala-servidores/
+├── acoes/
+│   ├── acoes.py                  # Serviço das ações da central (porta 8094)
+│   └── agente/
+│       ├── acoes.conf            # Lista fechada do que o agente pode executar
+│       ├── srv01/                # Receitas do SRV-01 (celular Android)
+│       │   ├── encerrar-ociosas.sh
+│       │   └── reiniciar-app.sh
+│       └── srv02/                # Receitas do SRV-02 (containers Docker)
+│           ├── Dockerfile
+│           ├── encerrar-ociosas.sh
+│           └── reiniciar-app.sh
+├── app/                          # Aplicação Loja (PostgreSQL + nginx + Python)
+│   ├── Dockerfile
+│   ├── esquema.sql
+│   ├── loja.py
+│   ├── nginx-loja.conf
+│   └── README.md
+├── celular/                      # Guia do SRV-01 (Android + Termux), numerado
+│   ├── 1-termux-ssh.sh
+│   ├── 2-debian-zabbix.sh
+│   ├── 3-agente.sh
+│   ├── 4-banco-app.sh
+│   ├── 5-plugin-postgresql.sh
+│   ├── 6-vigia-e-limites.sh
+│   ├── 7-acoes.sh
+│   ├── 8-agendamento.sh
+│   └── README.md
+├── firmware/                     # Código do ESP32 (PlatformIO)
+│   ├── platformio.ini
+│   └── src/
+│       ├── main.cpp
+│       ├── pagina_atualizar.h
+│       ├── pagina_portal.h
+│       └── pagina_status.h
+├── gerador/                      # Gerador de carga da Loja (porta 8092)
+│   └── gerador.py
+├── grafana/
+│   ├── dashboards/
+│   │   └── sala-do-servidor.json # Gerado por gerar_dashboard.py
+│   ├── gerar_dashboard.py
+│   ├── noc/                      # A central de monitoramento (NOC)
+│   │   ├── acoes.js              # Botões que agem (Reconhecer, Comentar...)
+│   │   ├── cena3d.js             # Sala e rack em 3D
+│   │   ├── dados.js              # Conversa com o Zabbix
+│   │   ├── estilo.css
+│   │   ├── interface.js          # Telas e layout
+│   │   ├── noc.js                # Ponto de entrada
+│   │   └── vendor/               # Three.js (MIT) — nada depende de internet
+│   │       ├── jsm/
+│   │       ├── LICENSE-three.txt
+│   │       └── three.module.min.js
+│   └── provisioning/             # Carregado sozinho pelo Grafana
+│       ├── dashboards/sala.yaml
+│       ├── datasources/zabbix.yaml
+│       └── plugins/zabbix.yaml
+├── gravador/                     # Compila o firmware e grava pelo navegador
+│   ├── Dockerfile
+│   ├── nginx.conf
+│   └── site/
+│       ├── app.js                # esptool-js + Monitor Serial
+│       └── index.html
+├── zabbix/
+│   ├── configurar.py             # Configura o Zabbix inteiro pela API
+│   ├── descobrir_chat_id.py      # Mostra o chat ID do Telegram
+│   └── template_esp32_sala.yaml  # Template exportado (backup)
+├── docker-compose.yml            # Todos os serviços, comentados
+├── .env.example                  # Modelo do .env (senhas, token, IPs)
+├── .gitignore
+├── .dockerignore
+├── .gitattributes
+└── README.md
+text
+
+**Prós:** funciona em qualquer renderizador (GitHub, GitLab, VS Code, terminal), não depende de imagem, é pesquisável (Ctrl+F acha `gerador.py`).
+**Contras:** não tem cores nem ícones; em telas estreitas pode rolar horizontalmente.
+
+**Dica de compatibilidade:** use o caractere `├──` e `└──` (U+251C, U+2514) — são os mesmos do `tree -a`. O GitHub renderiza perfeitamente.
+
+---
+
+## Opção 2 — Bloco `text` **com colapso** (recomendado para este projeto)
+
+O README já é longo. Uma árvore de 63 arquivos empurra tudo para baixo. Use o `<details>` do HTML para deixar recolhida por padrão:
+
+```markdown
+## Estrutura das pastas
+
+Clique para expandir a árvore completa (63 arquivos em 30 pastas).
+
+<details>
+<summary><strong>Ver árvore de arquivos</strong></summary>
+
+```text
+monitoramento-sala-servidores/
+├── acoes/
+│   ├── acoes.py
+│   └── agente/
+│       ├── acoes.conf
+│       ├── srv01/
+│       │   ├── encerrar-ociosas.sh
+│       │   └── reiniciar-app.sh
+│       └── srv02/
+│           ├── Dockerfile
+│           ├── encerrar-ociosas.sh
+│           └── reiniciar-app.sh
+├── app/
+│   ├── Dockerfile
+│   ├── esquema.sql
+│   ├── loja.py
+│   ├── nginx-loja.conf
+│   └── README.md
+├── celular/
+│   ├── 1-termux-ssh.sh
+│   ├── 2-debian-zabbix.sh
+│   ├── 3-agente.sh
+│   ├── 4-banco-app.sh
+│   ├── 5-plugin-postgresql.sh
+│   ├── 6-vigia-e-limites.sh
+│   ├── 7-acoes.sh
+│   ├── 8-agendamento.sh
+│   └── README.md
+├── firmware/
+│   ├── platformio.ini
+│   └── src/
+│       ├── main.cpp
+│       ├── pagina_atualizar.h
+│       ├── pagina_portal.h
+│       └── pagina_status.h
+├── gerador/
+│   └── gerador.py
+├── grafana/
+│   ├── dashboards/
+│   │   └── sala-do-servidor.json
+│   ├── gerar_dashboard.py
+│   ├── noc/
+│   │   ├── acoes.js
+│   │   ├── cena3d.js
+│   │   ├── dados.js
+│   │   ├── estilo.css
+│   │   ├── interface.js
+│   │   ├── noc.js
+│   │   └── vendor/
+│   │       ├── jsm/
+│   │       ├── LICENSE-three.txt
+│   │       └── three.module.min.js
+│   └── provisioning/
+│       ├── dashboards/sala.yaml
+│       ├── datasources/zabbix.yaml
+│       └── plugins/zabbix.yaml
+├── gravador/
+│   ├── Dockerfile
+│   ├── nginx.conf
+│   └── site/
+│       ├── app.js
+│       └── index.html
+├── zabbix/
+│   ├── configurar.py
+│   ├── descobrir_chat_id.py
+│   └── template_esp32_sala.yaml
+├── docker-compose.yml
+├── .env.example
+├── .gitignore
+├── .dockerignore
+├── .gitattributes
+└── README.md
+</details> ```
+Prós: árvore disponível sem poluir a leitura; funciona no GitHub, GitLab, VS Code (preview) e na maioria dos renderizadores.
+Contras: não funciona em alguns visualizadores de Markdown muito antigos (raro hoje).
+
+Opção 3 — Imagem + tree.txt versionado (mais "bonito", menos útil)
+Gerar PNG/SVG da árvore (ex.: com tree.nathanfriend.io ou asciinema/svg-term) e embutir:
+
+markdown
+## Estrutura das pastas
+
+![Estrutura de pastas](docs/estrutura.svg)
+
+A árvore em texto está em [`docs/estrutura.txt`](docs/estrutura.txt) (gerada com `tree -a -I '.git|.DS_Store'`).
+Prós: visual mais agradável, com cores e ícones (se usar SVG).
+Contras:
+
+Não é pesquisável (Ctrl+F não acha nada).
+
+Não é acessível (leitores de tela não leem).
+
+Desatualiza silenciosamente — ninguém regenera a imagem a cada commit.
+
+Não funciona no terminal (quem lê README.md com cat vê o caminho da imagem).
+
+Recomendação: só use se for para complementar a Opção 1/2, nunca substituir. Neste projeto didático, a árvore em texto é mais coerente com o resto do README (que é todo texto e tabelas).
+
+Minha recomendação para este projeto
+Use a Opção 2 (bloco text + <details>), porque:
+
+O README já é longo — a árvore colapsada não empurra o conteúdo.
+
+É pesquisável e versionável (diff no Git mostra mudanças reais na estrutura).
+
+É acessível e funciona em qualquer lugar (GitHub, terminal, VS Code).
+
+Mantém o estilo do README (texto + tabelas, nada de imagens decorativas).
+
+O <details> já é usado em outros lugares? Se não, é a primeira vez — mas é padrão do GitHub há anos.
+
+Complemente com uma tabela curta (como o README já tem) apontando para os subsistemas principais. A árvore é para quem quer o detalhe; a tabela é para quem quer a visão macro.
+
+Versão final sugerida (substituindo a tabela atual)
+markdown
+## Estrutura das pastas
+
+| Pasta / arquivo | O que tem |
+| --- | --- |
+| [docker-compose.yml](docker-compose.yml) | Todos os serviços, comentados |
+| `.env` / [.env.example](.env.example) | Senhas, token e IPs (o `.env` **nunca** vai para o Git) |
+| [firmware/](firmware/) | Código do ESP32 (PlatformIO) |
+| [gravador/](gravador/) | Dockerfile que compila + página que grava pelo navegador |
+| [zabbix/](zabbix/) | Configuração pela API, template exportado, chat ID do Telegram |
+| [grafana/](grafana/) | Central NOC: `noc/` (sala 3D), `provisioning/`, gerador do dashboard |
+| [acoes/](acoes/) | Serviço das ações + receitas por servidor (`agente/srv01/`, `agente/srv02/`) |
+| [app/](app/) | Aplicação Loja (Docker, SQL, nginx) — veja [app/README.md](app/README.md) |
+| [celular/](celular/) | Guia do SRV-01 (Android + Termux), numerado — veja [celular/README.md](celular/README.md) |
+| [gerador/](gerador/) | Gerador de carga da Loja (porta 8092) |
+
+Árvore completa:
+
+<details>
+<summary><strong>Ver árvore de arquivos (30 pastas, 63 arquivos)</strong></summary>
+
+```text
+monitoramento-sala-servidores/
+├── acoes/
+│   ├── acoes.py
+│   └── agente/
+│       ├── acoes.conf
+│       ├── srv01/
+│       │   ├── encerrar-ociosas.sh
+│       │   └── reiniciar-app.sh
+│       └── srv02/
+│           ├── Dockerfile
+│           ├── encerrar-ociosas.sh
+│           └── reiniciar-app.sh
+├── app/
+│   ├── Dockerfile
+│   ├── esquema.sql
+│   ├── loja.py
+│   ├── nginx-loja.conf
+│   └── README.md
+├── celular/
+│   ├── 1-termux-ssh.sh
+│   ├── 2-debian-zabbix.sh
+│   ├── 3-agente.sh
+│   ├── 4-banco-app.sh
+│   ├── 5-plugin-postgresql.sh
+│   ├── 6-vigia-e-limites.sh
+│   ├── 7-acoes.sh
+│   ├── 8-agendamento.sh
+│   └── README.md
+├── firmware/
+│   ├── platformio.ini
+│   └── src/
+│       ├── main.cpp
+│       ├── pagina_atualizar.h
+│       ├── pagina_portal.h
+│       └── pagina_status.h
+├── gerador/
+│   └── gerador.py
+├── grafana/
+│   ├── dashboards/
+│   │   └── sala-do-servidor.json
+│   ├── gerar_dashboard.py
+│   ├── noc/
+│   │   ├── acoes.js
+│   │   ├── cena3d.js
+│   │   ├── dados.js
+│   │   ├── estilo.css
+│   │   ├── interface.js
+│   │   ├── noc.js
+│   │   └── vendor/
+│   │       ├── jsm/
+│   │       ├── LICENSE-three.txt
+│   │       └── three.module.min.js
+│   └── provisioning/
+│       ├── dashboards/sala.yaml
+│       ├── datasources/zabbix.yaml
+│       └── plugins/zabbix.yaml
+├── gravador/
+│   ├── Dockerfile
+│   ├── nginx.conf
+│   └── site/
+│       ├── app.js
+│       └── index.html
+├── zabbix/
+│   ├── configurar.py
+│   ├── descobrir_chat_id.py
+│   └── template_esp32_sala.yaml
+├── docker-compose.yml
+├── .env.example
+├── .gitignore
+├── .dockerignore
+├── .gitattributes
+└── README.md
+</details> ```
+Para manter atualizado (evitar desatualização silenciosa)
+O tree.txt que você me enviou está correto. Para regenerá-lo no futuro sem erro:
+
+bash
+tree -a -I '.git|.DS_Store|__pycache__|*.pyc' --dirsfirst > docs/estrutura.txt
+-a inclui ocultos (.gitignore, .env.example…).
+
+-I ignora o que não interessa no README.
+
+--dirsfirst põe pastas antes de arquivos (mais legível).
+
+Redireciona para docs/estrutura.txt — e aí você resolve também a pasta docs/ vazia.
+
+Dica: adicione um comentário no README.md logo acima do bloco:
+
+markdown
+<!-- Árvore gerada com: tree -a -I '.git|.DS_Store|__pycache__|*.pyc' --dirsfirst -->
+Quem editar o README depois sabe como regenerar. Se quiser automação total, um Makefile com make arvore roda esse comando e substitui o bloco via sed/python — mas para um lab, o comentário já basta.
+
+Resumo
+Opção	Pesquisável	Acessível	Versionável	Esforço	Recomendação
+1 — bloco text	✅	✅	✅	Baixo	OK
+2 — text + <details>	✅	✅	✅	Baixo	✅ Melhor
+3 — imagem SVG	❌	❌	❌	Médio	Só complemento
+Use a Opção 2 com a árvore exata do seu tree.txt, mantendo a tabela macro em cima. É o equilíbrio certo entre legibilidade, acessibilidade e manutenção para este projeto.
+
+Eu quero colocar no REAME.md desede o comando que usei:
+
+tree
+Colocando o tree no README — do comando ao resultado
+Boa ideia: documentar o comando que gera a árvore resolve o problema de desatualização silenciosa. Quem clonar o repositório sabe exatamente como reproduzir aquilo. Vou montar a seção completa, pronta para colar.
+
+Versão pronta para colar no README.md
+markdown
+## Estrutura das pastas
+
+| Pasta / arquivo | O que tem |
+| --- | --- |
+| [docker-compose.yml](docker-compose.yml) | Todos os serviços, comentados |
+| `.env` / [.env.example](.env.example) | Senhas, token e IPs (o `.env` **nunca** vai para o Git) |
+| [firmware/](firmware/) | Código do ESP32 (PlatformIO) |
+| [gravador/](gravador/) | Dockerfile que compila + página que grava pelo navegador |
+| [zabbix/](zabbix/) | Configuração pela API, template exportado, chat ID do Telegram |
+| [grafana/](grafana/) | Central NOC: `noc/` (sala 3D), `provisioning/`, gerador do dashboard |
+| [acoes/](acoes/) | Serviço das ações + receitas por servidor (`agente/srv01/`, `agente/srv02/`) |
+| [app/](app/) | Aplicação Loja (Docker, SQL, nginx) — veja [app/README.md](app/README.md) |
+| [celular/](celular/) | Guia do SRV-01 (Android + Termux), numerado — veja [celular/README.md](celular/README.md) |
+| [gerador/](gerador/) | Gerador de carga da Loja (porta 8092) |
+
+### Como a árvore abaixo foi gerada
+
+```bash
+tree -a -I '.git|.DS_Store|__pycache__|*.pyc' --dirsfirst
+-a — inclui arquivos e pastas ocultos (.env.example, .gitignore, .dockerignore, .gitattributes).
+
+-I — ignora o que não interessa no README: .git/, .DS_Store (macOS), __pycache__/ e *.pyc (Python).
+
+--dirsfirst — lista as pastas antes dos arquivos, dentro de cada nível.
+
+No macOS o tree não vem instalado. Instale uma vez com brew install tree
+(Linux: sudo apt install tree; Windows: winget install tree ou use o WSL).
+
+<details> <summary><strong>Ver árvore completa (30 pastas, 63 arquivos)</strong></summary>
+text
+monitoramento-sala-servidores/
+├── acoes/
+│   ├── acoes.py
+│   └── agente/
+│       ├── acoes.conf
+│       ├── srv01/
+│       │   ├── encerrar-ociosas.sh
+│       │   └── reiniciar-app.sh
+│       └── srv02/
+│           ├── Dockerfile
+│           ├── encerrar-ociosas.sh
+│           └── reiniciar-app.sh
+├── app/
+│   ├── Dockerfile
+│   ├── esquema.sql
+│   ├── loja.py
+│   ├── nginx-loja.conf
+│   └── README.md
+├── celular/
+│   ├── 1-termux-ssh.sh
+│   ├── 2-debian-zabbix.sh
+│   ├── 3-agente.sh
+│   ├── 4-banco-app.sh
+│   ├── 5-plugin-postgresql.sh
+│   ├── 6-vigia-e-limites.sh
+│   ├── 7-acoes.sh
+│   ├── 8-agendamento.sh
+│   └── README.md
+├── firmware/
+│   ├── platformio.ini
+│   └── src/
+│       ├── main.cpp
+│       ├── pagina_atualizar.h
+│       ├── pagina_portal.h
+│       └── pagina_status.h
+├── gerador/
+│   └── gerador.py
+├── grafana/
+│   ├── dashboards/
+│   │   └── sala-do-servidor.json
+│   ├── gerar_dashboard.py
+│   ├── noc/
+│   │   ├── acoes.js
+│   │   ├── cena3d.js
+│   │   ├── dados.js
+│   │   ├── estilo.css
+│   │   ├── interface.js
+│   │   ├── noc.js
+│   │   └── vendor/
+│   │       ├── jsm/
+│   │       ├── LICENSE-three.txt
+│   │       └── three.module.min.js
+│   └── provisioning/
+│       ├── dashboards/sala.yaml
+│       ├── datasources/zabbix.yaml
+│       └── plugins/zabbix.yaml
+├── gravador/
+│   ├── Dockerfile
+│   ├── nginx.conf
+│   └── site/
+│       ├── app.js
+│       └── index.html
+├── zabbix/
+│   ├── configurar.py
+│   ├── descobrir_chat_id.py
+│   └── template_esp32_sala.yaml
+├── docker-compose.yml
+├── .env.example
+├── .gitignore
+├── .dockerignore
+├── .gitattributes
+└── README.md
+</details> ```
+Por que essa forma funciona bem
+O comando fica visível — qualquer pessoa regenera a árvore com o mesmo resultado.
+
+As flags têm explicação — quem nunca usou tree entende o que cada uma faz.
+
+Instrução de instalação — o tree não vem no macOS; sem isso, o leitor trava na primeira linha.
+
+<details> — a árvore de 63 arquivos não empurra o resto do README para baixo.
+
+Bloco text — pesquisável com Ctrl+F (diferente de imagem), versionável no Git (diff mostra mudanças reais).
+
+Ajuste fino (opcional)
+Se quiser incluir os arquivos ocultos sem excluir __pycache__ do comando
+Se o repositório não usa Python além dos scripts em zabbix/, grafana/ e gerador/, talvez nunca apareça __pycache__/. Nesse caso, o comando pode ser mais curto:
+
+bash
+tree -a -I '.git|.DS_Store' --dirsfirst
+Se quiser mostrar tamanhos (útil para quem vai clonar)
+bash
+tree -a -h -I '.git|.DS_Store|__pycache__|*.pyc' --dirsfirst
+Se quiser apenas 3 níveis (visão macro, sem o vendor/ da Three.js)
+bash
+tree -a -L 3 -I '.git|.DS_Store|__pycache__|*.pyc' --dirsfirst
+Alternativa: gerar automaticamente no Makefile
+Se quiser que a árvore nunca desatualize, crie um alvo que regenera o bloco. Exemplo de Makefile na raiz:
+
+makefile
+arvore:
+	tree -a -I '.git|.DS_Store|__pycache__|*.pyc' --dirsfirst > docs/estrutura.txt
+	@echo "Árvore salva em docs/estrutura.txt"
+E no README, em vez do bloco inline, aponte para o arquivo:
+
+markdown
+A árvore completa está em [`docs/estrutura.txt`](docs/estrutura.txt), gerada com
+`make arvore` (`tree -a -I '.git|.DS_Store|__pycache__|*.pyc' --dirsfirst`).
+Isso resolve de vez a pasta docs/ vazia (que apareceu no seu tree.txt) e mantém a árvore versionada separadamente.
+
+Resumo
+Cole a versão pronta acima no README.md.
+
+O comando documentado é exatamente o que gerou o tree.txt que você me enviou.
+
+Se quiser automação, use o alvo make arvore + link para docs/estrutura.txt.
+
+A árvore fica dentro de <details> para não poluir a leitura.
+
+Eu quero rodar o código, mas não sei!
+O que você precisa do código para me ajudar?
+Vamos rodar o projeto — do zero, passo a passo
+Boa notícia: o projeto foi feito para ser rodado do zero, sem precisar de experiência. O README já traz a ordem. Vou transformar em passos numerados, sem pular nada, e dizer exatamente o que fazer se der errado em cada etapa.
+
+Antes de tudo, preciso te fazer algumas perguntas. Responda o que souber — o que você não souber, a gente resolve junto.
+
+1. Perguntas para eu te ajudar melhor
+Marque/responda (pode copiar e colar):
+
+Sobre o seu computador
+□ É Windows, Mac ou Linux?
+□ Se Windows: é Windows 10 ou 11? (o README foi feito para Windows 11 Pro)
+□ Quanta memória RAM o computador tem? (8 GB, 16 GB, 32 GB...)
+□ Você tem Docker Desktop instalado? (se não sabe: abra o menu Iniciar/Spotlight e digite "Docker")
+Sobre o hardware
+□ Você tem o ESP32 DevKit V1 em mãos?
+□ Você tem os sensores: DHT11, sensor de chuva (YL-83/FC-37), sensor de porta (MC-38)?
+□ Você tem um cabo USB que conecta o ESP32 ao computador? (atenção: tem cabo só de carga que não transmite dados — precisa ser cabo de dados)
+Sobre o celular (SRV-01)
+□ Você tem um celular Android disponível para ser o SRV-01?
+□ Ele está na mesma rede Wi-Fi do computador?
+Sobre o Telegram
+□ Você tem conta no Telegram? (para receber os alertas)
+Sobre o objetivo agora
+□ Você quer só ver funcionando (subir Zabbix + Grafana e ver a tela) sem o ESP32?
+□ Ou quer montar tudo, incluindo o hardware?
+💡 Se você só quer ver a central funcionando pela primeira vez, dá para fazer sem ESP32: o Zabbix sobe, o Grafana mostra a tela, e os sensores aparecem "sem dados". Depois você pluga o ESP32.
+
+2. O caminho mais curto para "ver rodando" (sem hardware)
+Se você só quer ver a tela do projeto funcionando agora, siga só isso. São 5 passos.
+
+Passo 1 — Instalar o Docker Desktop
+Windows/Mac: baixe em https://www.docker.com/products/docker-desktop/
+
+Linux: siga https://docs.docker.com/engine/install/
+
+Depois de instalar, abra o Docker Desktop e espere ele dizer "Engine running" (ícone verde). O Docker precisa estar aberto para os comandos funcionarem — isso está no README e é a causa nº 1 de erro de iniciante.
+
+Como saber se deu certo: abra o terminal e rode:
+
+bash
+docker --version
+Deve aparecer algo como Docker version 27.x.x. Se der "command not found", o Docker não está instalado ou o terminal precisa ser reiniciado.
+
+Passo 2 — Baixar o projeto
+Se você já tem a pasta do projeto no computador, pule. Se não:
+
+bash
+git clone <URL-do-repositório>
+cd monitoramento-sala-servidores
+(Se não tem Git instalado, baixe o ZIP pelo GitHub: botão verde Code → Download ZIP, e descompacte.)
+
+Passo 3 — Criar o arquivo .env
+O projeto não funciona sem o .env — é lá que ficam as senhas. O repositório traz um modelo chamado .env.example. Copie:
+
+Windows (PowerShell):
+
+powershell
+Copy-Item .env.example .env
+Mac/Linux:
+
+bash
+cp .env.example .env
+Depois abra o .env num editor de texto (Bloco de Notas, VS Code...) e preencha pelo menos:
+
+text
+ZABBIX_PASSWORD=zabbix           # troque por uma senha sua
+GRAFANA_ADMIN_USER=admin
+GRAFANA_ADMIN_PASSWORD=admin      # troque por uma senha sua
+ZABBIX_HOST_IP=192.168.x.x        # o IP do SEU computador na rede
+Como descobrir o IP do seu computador:
+
+Windows: abra o Prompt e rode ipconfig. Procure "Endereço IPv4" do adaptador Wi-Fi ou Ethernet (algo como 192.168.1.42).
+
+Mac: Preferências do Sistema → Rede → veja o IP.
+
+Linux: hostname -I ou ip addr.
+
+Se você não vai usar o ESP32 agora, pode deixar ESP32_IP e NOTEBOOK_VELHO_IP em branco. O resto do sistema sobe.
+
+Passo 4 — Subir os containers
+No terminal, dentro da pasta do projeto, rode:
+
+bash
+docker compose up -d
+A primeira vez demora (baixa imagens do Zabbix, Grafana, PostgreSQL — alguns GB). Vai aparecer muita linha; é normal. Espere terminar.
+
+Como saber se deu certo:
+
+bash
+docker compose ps
+Deve mostrar postgres, zabbix-server, zabbix-web, grafana todos como running (ou healthy).
+
+Passo 5 — Abrir as telas
+Abra no navegador:
+
+O quê	Endereço	Login
+Zabbix	http://localhost:8080	Admin / a senha do ZABBIX_PASSWORD
+Grafana	http://localhost:3000	usuário/senha do .env
+Central NOC	http://localhost:3000/d/sala-do-servidor/sala-do-servidor?kiosk&viewPanel=panel-1	(já logado)
+A primeira subida do Grafana pode levar 1–2 minutos até a central aparecer. Se der erro, espere e recarregue.
+
+Se você chegou até aqui e viu a sala 3D, o mais difícil passou. 🎉
+
+3. O caminho completo (com ESP32 e sensores)
+Depois que o passo 2 funcionar, o README tem a ordem exata em "Como montar — passo a passo" (11 passos). Resumo:
+
+Montar o hardware — tabela "A montagem" do README (DHT11 no GPIO 4, chuva no GPIO 32, porta no GPIO 25).
+
+Gravar o ESP32 — abra http://localhost:8090 no Chrome ou Edge (não funciona no Safari/Firefox) e clique em Gravar no ESP32.
+
+Configurar o Wi-Fi — pelo celular: conecte na rede Sala-Servidor-XXXX que o ESP32 cria, escolha sua rede 2,4 GHz e digite a senha.
+
+Anotar IP e MAC — no gravador, Monitor Serial → Reiniciar a placa.
+
+Reservar o IP no roteador (opcional, mas recomendado).
+
+Calibrar — abra http://IP-do-ESP32/ no navegador.
+
+Apontar o Zabbix — preencha ESP32_IP no .env e rode:
+
+bash
+docker compose up -d
+python zabbix/configurar.py
+Telegram (opcional) — crie bot no @BotFather, preencha TELEGRAM_TOKEN no .env, rode python zabbix/descobrir_chat_id.py, preencha TELEGRAM_CHAT_ID, rode python zabbix/configurar.py de novo.
+
+4. O que eu preciso de você para te ajudar a rodar
+Para eu te dar instruções precisas (e não genéricas), me diga:
+
+Sistema operacional (Windows 10/11, Mac, Linux) e versão.
+
+Você já tem Docker Desktop instalado e aberto? (se não sabe, digite docker --version no terminal e me mande a saída).
+
+Você já tem a pasta do projeto no computador? Onde?
+
+Você tem o ESP32 e os sensores em mãos ou quer começar só com o software?
+
+Em que passo você está travado, se já tentou algo. Se apareceu erro, cole a mensagem exata (não resuma — a mensagem completa diz qual é o problema).
+
+Se for Windows: você está usando PowerShell, Prompt de Comando (cmd), Git Bash ou WSL? (muda o comando de copiar o .env)
+
+5. Erros mais comuns (e o que fazer)
+Sintoma	Causa	Solução
+docker: command not found	Docker não instalado ou terminal antigo	Instale o Docker Desktop e reinicie o terminal
+Cannot connect to the Docker daemon	Docker Desktop fechado	Abra o Docker Desktop e espere "Engine running"
+docker compose diz "command not found" mas docker funciona	Docker antigo (versão 1)	Atualize o Docker Desktop
+Container reinicia em loop	.env faltando ou senha errada	Confira se copiou .env.example → .env
+Grafana abre mas central fica em branco	Plugin Zabbix ainda baixando	Espere 2 min e recarregue (F5)
+Zabbix server is not running	Zabbix-server ainda subindo	Espere 1–2 min; veja docker compose logs -f zabbix-server
+ESP32 não aparece no gravador (:8090)	Cabo só de carga, ou navegador errado	Troque o cabo; use Chrome ou Edge
+python zabbix/configurar.py dá erro	Python não instalado, ou .env incompleto	Instale Python 3 e confira o .env
+6. Resumo — o que fazer agora
+Se você só quer ver a tela funcionando (sem ESP32):
+
+Instalar e abrir o Docker Desktop.
+
+cp .env.example .env e preencher as senhas + ZABBIX_HOST_IP.
+
+docker compose up -d.
+
+Abrir http://localhost:3000/d/sala-do-servidor/sala-do-servidor?kiosk&viewPanel=panel-1.
+
+Me responda as perguntas da seção 1 (principalmente: sistema operacional, se o Docker está instalado, e se você tem o ESP32). Com isso eu te dou o próximo comando exato, sem adivinhação — e, se algo der errado, a gente depura junto com a mensagem de erro real.

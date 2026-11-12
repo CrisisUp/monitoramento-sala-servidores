@@ -1,17 +1,17 @@
 zabbix_export:
   version: '7.0'
   template_groups:
-    - uuid: ca8c2f40f16c4fe2a63cb266b9db1600
+    - uuid: 72f5c20715694c948d86c0f4fc94c099
       name: 'Templates/Sala do servidor'
   templates:
-    - uuid: 221706e8bf0f40059fb91760235b998f
+    - uuid: da1af82df1a149fb97e0bb287860cec2
       template: 'ESP32 Sala do Servidor'
       name: 'ESP32 Sala do Servidor'
       description: 'Ambiente físico da sala do servidor via ESP32 (http://IP/status). Gerado por zabbix/configurar.py.'
       groups:
         - name: 'Templates/Sala do servidor'
       items:
-        - uuid: d3f2e1cbdf9a4288a7c217acdb16440f
+        - uuid: 01b2592b094f4231bbf9d5878053da5e
           name: Vazamento
           type: DEPENDENT
           key: esp32.agua
@@ -29,7 +29,7 @@ zabbix_export:
             - tag: sensor
               value: agua
           triggers:
-            - uuid: e089cf284fd14db99e547cce5193c537
+            - uuid: 5a1023f3d6cf40cf95c3a7ac51942aa2
               expression: 'last(/ESP32 Sala do Servidor/esp32.agua)=1'
               name: 'Água detectada no piso'
               priority: DISASTER
@@ -39,7 +39,7 @@ zabbix_export:
                   value: agua
                 - tag: local
                   value: sala-servidor
-        - uuid: d089b0c09a954f0e878df6209120b701
+        - uuid: cf468d7f92484348ae55afab58e3f01d
           name: 'Água: leitura bruta'
           type: DEPENDENT
           key: esp32.agua_raw
@@ -54,7 +54,7 @@ zabbix_export:
           tags:
             - tag: sensor
               value: calibracao
-        - uuid: 51e8ea6935dc430da547ba0639e3a379
+        - uuid: 9dbff6baa9c943579a98524a17a9e133
           name: 'Sensor DHT11'
           type: DEPENDENT
           key: esp32.dht_ok
@@ -75,7 +75,7 @@ zabbix_export:
             - tag: sensor
               value: temperatura
           triggers:
-            - uuid: b623c4548cde48c699e565a8f76ab6f1
+            - uuid: 944f38a0edda4e5a9d4a4fe15fc2886f
               expression: 'max(/ESP32 Sala do Servidor/esp32.dht_ok,1m)=0'
               name: 'Sensor DHT11 sem resposta'
               priority: INFO
@@ -85,7 +85,7 @@ zabbix_export:
                   value: dht
                 - tag: local
                   value: sala-servidor
-        - uuid: 75170b632f2a45eebb4c36656cbe548e
+        - uuid: 9a33711fffe445f798525eae8a4cf138
           name: 'Energia da tomada'
           type: DEPENDENT
           key: esp32.energia
@@ -103,7 +103,7 @@ zabbix_export:
             - tag: sensor
               value: energia
           triggers:
-            - uuid: dcbde73990524882aac02767f01ce278
+            - uuid: e3b9d5e7552f455682afe2758913575f
               expression: 'last(/ESP32 Sala do Servidor/esp32.energia)=0'
               name: 'Tomada sem energia'
               priority: HIGH
@@ -113,22 +113,7 @@ zabbix_export:
                   value: energia
                 - tag: local
                   value: sala-servidor
-        - uuid: 2361660743c6419dba9b3c777addc00a
-          name: 'Energia: leitura bruta'
-          type: DEPENDENT
-          key: esp32.energia_raw
-          delay: '0'
-          preprocessing:
-            - type: JSONPATH
-              parameters:
-                - $.energia_raw
-              error_handler: DISCARD_VALUE
-          master_item:
-            key: esp32.status
-          tags:
-            - tag: sensor
-              value: calibracao
-        - uuid: 40e52372d011481cbe496fbda53ad095
+        - uuid: 9374b22f140b4bb991845b45e864771f
           name: 'Energia: sensor instalado (1=sim)'
           type: DEPENDENT
           key: esp32.energia_instalada
@@ -143,7 +128,22 @@ zabbix_export:
           tags:
             - tag: sensor
               value: calibracao
-        - uuid: 4101f77b55bb408798d039a527d24c68
+        - uuid: db0b8f61932f4d27bd49331f0447d208
+          name: 'Energia: leitura bruta'
+          type: DEPENDENT
+          key: esp32.energia_raw
+          delay: '0'
+          preprocessing:
+            - type: JSONPATH
+              parameters:
+                - $.energia_raw
+              error_handler: DISCARD_VALUE
+          master_item:
+            key: esp32.status
+          tags:
+            - tag: sensor
+              value: calibracao
+        - uuid: 33fecd6192c9401fb4ae4f486a89c624
           name: 'Porta da sala'
           type: DEPENDENT
           key: esp32.porta
@@ -161,7 +161,7 @@ zabbix_export:
             - tag: sensor
               value: porta
           triggers:
-            - uuid: 35457222233e4ed2857b9f38eb34d6f2
+            - uuid: 217794315be445f4946110714a108acd
               expression: 'min(/ESP32 Sala do Servidor/esp32.porta,{$PORTA.TEMPO})=1'
               name: 'Porta aberta há mais de {$PORTA.TEMPO}'
               priority: WARNING
@@ -171,7 +171,7 @@ zabbix_export:
                   value: porta
                 - tag: local
                   value: sala-servidor
-        - uuid: 16bd27e31d114244b21061521d80701c
+        - uuid: 0804a5bf72b943b0a8c17349f98d371d
           name: 'Porta: pino cru (1=HIGH, 0=LOW)'
           type: DEPENDENT
           key: esp32.porta_raw
@@ -186,7 +186,7 @@ zabbix_export:
           tags:
             - tag: sensor
               value: calibracao
-        - uuid: 4de98ffc0552490682f33a46004a765f
+        - uuid: 776ae2bf78854ed28197c183263cf7a3
           name: 'ESP32: sinal Wi-Fi'
           type: DEPENDENT
           key: esp32.rssi
@@ -203,7 +203,7 @@ zabbix_export:
           tags:
             - tag: sensor
               value: esp32
-        - uuid: 105c1a8bd8ae45d192893ba4cfc10a9a
+        - uuid: d9be45777dd54126b4f32608e0a5e647
           name: 'ESP32 status (JSON)'
           type: HTTP_AGENT
           key: esp32.status
@@ -219,7 +219,7 @@ zabbix_export:
             - tag: componente
               value: esp32
           triggers:
-            - uuid: 470420176dff4883b06654fed56cb90b
+            - uuid: d4a366bed32f4f349957d5513ac718c4
               expression: 'nodata(/ESP32 Sala do Servidor/esp32.status,{$ESP32.SEM_DADOS})=1'
               name: 'ESP32 parou de responder'
               priority: HIGH
@@ -229,7 +229,7 @@ zabbix_export:
                   value: sensor
                 - tag: local
                   value: sala-servidor
-        - uuid: 952b952246da4b949ca0101b0e282e08
+        - uuid: 0d6f36e4483d4426baacae25bec85f45
           name: 'Temperatura da sala'
           type: DEPENDENT
           key: esp32.temperatura
@@ -251,7 +251,7 @@ zabbix_export:
             - tag: sensor
               value: temperatura
           triggers:
-            - uuid: 0427882c71114289beedd8972566a92d
+            - uuid: a7cfcd9210374ba0b60d10b9dab8c982
               expression: 'avg(/ESP32 Sala do Servidor/esp32.temperatura,2m)>{$TEMP.ALTA}'
               name: 'Temperatura da sala acima de {$TEMP.ALTA} °C'
               priority: HIGH
@@ -261,7 +261,7 @@ zabbix_export:
                   value: temperatura
                 - tag: local
                   value: sala-servidor
-            - uuid: ac6d950ea3c34828bdd8333fdb53159f
+            - uuid: 4fee4b136afd47909cd098e873e7c762
               expression: 'avg(/ESP32 Sala do Servidor/esp32.temperatura,2m)>{$TEMP.ATENCAO}'
               name: 'Temperatura da sala acima de {$TEMP.ATENCAO} °C'
               priority: WARNING
@@ -274,7 +274,7 @@ zabbix_export:
                   value: temperatura
                 - tag: local
                   value: sala-servidor
-        - uuid: c05d9e5d2e704ff5a3da88bd193bf857
+        - uuid: 598b7019aeb743308ebd1cdce59100f0
           name: 'Umidade da sala'
           type: DEPENDENT
           key: esp32.umidade
@@ -294,7 +294,7 @@ zabbix_export:
           tags:
             - tag: sensor
               value: umidade
-        - uuid: 96eebd9684d04d04868f75c09a111cdd
+        - uuid: f3c19070942740f897882709f5ee7f43
           name: 'ESP32: tempo ligado'
           type: DEPENDENT
           key: esp32.uptime
@@ -310,7 +310,7 @@ zabbix_export:
           tags:
             - tag: sensor
               value: esp32
-        - uuid: 1552cdebadec44b4a3c2540dabb4aec2
+        - uuid: c2db0f3622e24b39a049f96a154c91ca
           name: 'ESP32: versão do firmware'
           type: DEPENDENT
           key: esp32.versao
@@ -350,28 +350,28 @@ zabbix_export:
           value: '28'
           description: '°C: alerta de Atenção.'
       valuemaps:
-        - uuid: 5c20fc5de92d4160995cbdd06e542578
+        - uuid: 1c79b1b0457944e18949ec9c1fc1b847
           name: Agua
           mappings:
             - value: '0'
               newvalue: Seco
             - value: '1'
               newvalue: 'Água detectada'
-        - uuid: 27f33bb0d4ba40ffbd5a01cddf8f29ac
+        - uuid: 6f73261f52654c27b0de056c4bba206c
           name: DHT
           mappings:
             - value: '0'
               newvalue: Falha
             - value: '1'
               newvalue: OK
-        - uuid: 12c4a9a1e3de4a67a763df2d7e0e5b73
+        - uuid: d0159b90212e40beae9bf9a9e5cfd8d7
           name: Energia
           mappings:
             - value: '0'
               newvalue: 'Sem energia'
             - value: '1'
               newvalue: 'Com energia'
-        - uuid: fcef4813b2b04b4080d58d8a83bd1ce0
+        - uuid: 79f68735c4614de78106d8624bb8af17
           name: Porta
           mappings:
             - value: '0'

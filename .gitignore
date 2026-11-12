@@ -17,3 +17,20 @@ Thumbs.db
 
 # Gerado na compilação pelo gravador (IP do Zabbix vindo do .env)
 firmware/src/config_build.h
+
+# Ambiente Python
+.venv/
+venv/
+__pycache__/
+*.pyc
+
+# PlatformIO e VS Code
+.pio/
+.vscode/
+
+# Arquivos de simulação temporários
+simulador_caos
+simulador_caos_srv02.py
+
+# Sistema
+.DS_Store
